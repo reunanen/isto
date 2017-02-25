@@ -1,3 +1,9 @@
 [submodule "Numcore_messaging_library"]
 	path = Numcore_messaging_library
 	url = https://github.com/reunanen/Numcore_messaging_library
+[submodule "SQLiteCpp"]
+	path = SQLiteCpp
+	url = https://github.com/SRombauts/SQLiteCpp
+[submodule "test/googletest"]
+	path = test/googletest
+	url = https://github.com/google/googletest
