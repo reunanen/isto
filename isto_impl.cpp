@@ -13,17 +13,19 @@
 namespace isto {
     Storage::Impl::Impl(const Configuration& configuration)
         : configuration(configuration)
-        , baseDirectory(boost::filesystem::path(configuration.baseDirectory).string())
-        , dbRotating(baseDirectory + "/isto_rotating.sqlite", SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE)
-        , dbPermanent(baseDirectory + "/isto_permanent.sqlite", SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE)
     {
-        dbRotating.exec("BEGIN EXCLUSIVE");
-        dbPermanent.exec("BEGIN EXCLUSIVE");
+        CreateDirectoriesThatDoNotExist();
+
+        const boost::filesystem::path basePath(configuration.baseDirectory);
+
+        dbRotating = std::unique_ptr<SQLite::Database>(new SQLite::Database((basePath / "rotating" / "isto_rotating.sqlite").string(), SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE));
+        dbPermanent = std::unique_ptr<SQLite::Database>(new SQLite::Database((basePath / "permanent" / "isto_permanent.sqlite").string(), SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE));
+
+        dbRotating->exec("BEGIN EXCLUSIVE");
+        dbPermanent->exec("BEGIN EXCLUSIVE");
 
         CreateTablesThatDoNotExist();
         CreateStatements();
-
-        CreateDirectoriesThatDoNotExist();
     }
 
     void Storage::Impl::SaveData(const DataItem& dataItem)
@@ -66,22 +68,24 @@ namespace isto {
 
     void Storage::Impl::CreateDirectoriesThatDoNotExist()
     {
-        boost::filesystem::create_directories(boost::filesystem::path(baseDirectory) / "rotating");
-        boost::filesystem::create_directories(boost::filesystem::path(baseDirectory) / "permanent");
+        const boost::filesystem::path basePath(configuration.baseDirectory);
+
+        boost::filesystem::create_directories(basePath / "rotating");
+        boost::filesystem::create_directories(basePath / "permanent");
     }
 
     void Storage::Impl::CreateTablesThatDoNotExist()
     {
         std::string createTableStatement = "create table if not exists DataItems (id text primary key, timestamp text, path text, size integer)";
 
-        dbRotating.exec(createTableStatement);
-        dbPermanent.exec(createTableStatement);
+        dbRotating->exec(createTableStatement);
+        dbPermanent->exec(createTableStatement);
     }
 
     void Storage::Impl::CreateStatements()
     {
-        insertRotating = std::unique_ptr<SQLite::Statement>(new SQLite::Statement(dbRotating, "insert into DataItems values (@id, @timestamp, @path, @size)"));
-        insertPermanent = std::unique_ptr<SQLite::Statement>(new SQLite::Statement(dbPermanent, "insert into DataItems values (@id, @timestamp, @path, @size)"));
+        insertRotating = std::unique_ptr<SQLite::Statement>(new SQLite::Statement(*dbRotating, "insert into DataItems values (@id, @timestamp, @path, @size)"));
+        insertPermanent = std::unique_ptr<SQLite::Statement>(new SQLite::Statement(*dbPermanent, "insert into DataItems values (@id, @timestamp, @path, @size)"));
     }
 
     void Storage::Impl::DeleteExcessRotatingData()

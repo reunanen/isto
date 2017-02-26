@@ -28,9 +28,8 @@ namespace isto {
         void DeleteExcessRotatingData();
 
         Configuration configuration;
-        std::string baseDirectory;
-        SQLite::Database dbRotating;
-        SQLite::Database dbPermanent;
+        std::unique_ptr<SQLite::Database> dbRotating;
+        std::unique_ptr<SQLite::Database> dbPermanent;
         std::unique_ptr<SQLite::Statement> insertRotating;
         std::unique_ptr<SQLite::Statement> insertPermanent;
     };
