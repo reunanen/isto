@@ -19,6 +19,12 @@
     <Filter Include="boost\filesystem">
       <UniqueIdentifier>{3e97351e-afc2-4bd3-82cc-dcc0a85118bf}</UniqueIdentifier>
     </Filter>
+    <Filter Include="system_clock_time_point_string_conversion">
+      <UniqueIdentifier>{9e15884f-7e0d-4d82-ae12-c911580c7cab}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="boost\system">
+      <UniqueIdentifier>{0d324bc3-4917-4605-b42d-7392dc26c710}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="googletest\googletest\src\gtest.cc">
@@ -72,6 +78,37 @@
     <ClCompile Include="..\SQLiteCpp\sqlite3\sqlite3.c">
       <Filter>sqlite</Filter>
     </ClCompile>
+    <ClCompile Include="..\system_clock_time_point_string_conversion\system_clock_time_point_string_conversion.cpp">
+      <Filter>system_clock_time_point_string_conversion</Filter>
+    </ClCompile>
+    <ClCompile Include="isto-test.cpp" />
+    <ClCompile Include="..\boost\libs\filesystem\src\codecvt_error_category.cpp">
+      <Filter>boost\filesystem</Filter>
+    </ClCompile>
+    <ClCompile Include="..\boost\libs\filesystem\src\operations.cpp">
+      <Filter>boost\filesystem</Filter>
+    </ClCompile>
+    <ClCompile Include="..\boost\libs\filesystem\src\path.cpp">
+      <Filter>boost\filesystem</Filter>
+    </ClCompile>
+    <ClCompile Include="..\boost\libs\filesystem\src\path_traits.cpp">
+      <Filter>boost\filesystem</Filter>
+    </ClCompile>
+    <ClCompile Include="..\boost\libs\filesystem\src\portability.cpp">
+      <Filter>boost\filesystem</Filter>
+    </ClCompile>
+    <ClCompile Include="..\boost\libs\filesystem\src\unique_path.cpp">
+      <Filter>boost\filesystem</Filter>
+    </ClCompile>
+    <ClCompile Include="..\boost\libs\filesystem\src\utf8_codecvt_facet.cpp">
+      <Filter>boost\filesystem</Filter>
+    </ClCompile>
+    <ClCompile Include="..\boost\libs\filesystem\src\windows_file_codecvt.cpp">
+      <Filter>boost\filesystem</Filter>
+    </ClCompile>
+    <ClCompile Include="..\boost\libs\system\src\error_code.cpp">
+      <Filter>boost\system</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\isto.h">
@@ -79,6 +116,9 @@
     </ClInclude>
     <ClInclude Include="..\isto_impl.h">
       <Filter>isto</Filter>
+    </ClInclude>
+    <ClInclude Include="..\system_clock_time_point_string_conversion\system_clock_time_point_string_conversion.h">
+      <Filter>system_clock_time_point_string_conversion</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

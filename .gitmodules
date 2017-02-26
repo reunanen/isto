@@ -7,3 +7,6 @@
 [submodule "test/googletest"]
 	path = test/googletest
 	url = https://github.com/google/googletest
+[submodule "system_clock_time_point_string_conversion"]
+	path = system_clock_time_point_string_conversion
+	url = https://github.com/reunanen/system_clock_time_point_string_conversion

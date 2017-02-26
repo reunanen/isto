@@ -12,19 +12,21 @@
 
 namespace isto {
     
-    struct DataItem {
-        DataItem(const std::string& id, const char* dataBegin, const char* dataEnd,
-            std::chrono::high_resolution_clock::time_point& timestamp = std::chrono::high_resolution_clock::now());
+    typedef std::chrono::system_clock::time_point timestamp_t;
 
-        DataItem(const std::string& id, const std::vector<unsigned char>& data,
-            std::chrono::high_resolution_clock::time_point& timestamp = std::chrono::high_resolution_clock::now());
+    timestamp_t now();
+
+    struct DataItem {
+        DataItem(const std::string& id, const char* dataBegin, const char* dataEnd, const timestamp_t& timestamp = now(), bool isPermanent = false);
+        DataItem(const std::string& id, const std::vector<unsigned char>& data, const timestamp_t& timestamp = now(), bool isPermanent = false);
 
         static DataItem Invalid();
 
-        const std::chrono::high_resolution_clock::time_point timestamp = std::chrono::high_resolution_clock::now();
         const std::string id; // for example, a guid
         const std::vector<unsigned char> data;
-        const bool isValid = false;
+        const timestamp_t timestamp;
+        const bool isPermanent;
+        const bool isValid;
 
     private:
         DataItem();
@@ -49,7 +51,7 @@ namespace isto {
 
         // Get data by timestamp
         // - supported comparison operators: "<", "<=", "==", ">=", ">"
-        DataItem GetData(const std::chrono::high_resolution_clock::time_point& timestamp = std::chrono::high_resolution_clock::now(), const std::string& comparisonOperator = "<=");
+        DataItem GetData(const timestamp_t& timestamp = std::chrono::high_resolution_clock::now(), const std::string& comparisonOperator = "<=");
 
         // Keep a certain data item forever
         // - for example, if manually labeled in a supervised training setting

@@ -10,14 +10,17 @@
 #include <assert.h>
 
 namespace isto {
-    DataItem::DataItem(const std::string& id, const char* dataBegin, const char* dataEnd, std::chrono::high_resolution_clock::time_point& timestamp)
+    timestamp_t now() { return std::chrono::high_resolution_clock::now(); }
+
+    DataItem::DataItem(const std::string& id, const char* dataBegin, const char* dataEnd, const timestamp_t& timestamp, bool isPermanent)
         : DataItem(id, std::vector<unsigned char>(dataBegin, dataEnd), timestamp)
     {}
 
-    DataItem::DataItem(const std::string& id, const std::vector<unsigned char>& data, std::chrono::high_resolution_clock::time_point& timestamp)
+    DataItem::DataItem(const std::string& id, const std::vector<unsigned char>& data, const timestamp_t& timestamp, bool isPermanent)
         : id(id)
         , data(data)
         , timestamp(timestamp)
+        , isPermanent(isPermanent)
         , isValid(true)
     {}
 
@@ -26,7 +29,10 @@ namespace isto {
         return DataItem();
     }
 
-    DataItem::DataItem() {}
+    DataItem::DataItem()
+        : isPermanent(false)
+        , isValid(false)
+    {}
 
     Storage::Storage(const Configuration& configuration)
         : impl(new Storage::Impl(configuration))

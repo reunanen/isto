@@ -6,6 +6,7 @@
 
 #include "../isto.h"
 #include <gtest/gtest.h>
+#include <numeric> // std::iota
 
 namespace {
 
@@ -37,13 +38,17 @@ namespace {
     TEST_F(IstoTest, CanBeSetUp) {
     }
 
-    // Tests that Foo does Xyz.
-    TEST_F(IstoTest, ) {
-        // Exercises the Xyz feature of Foo.
-    }
-
     TEST_F(IstoTest, CannotCreateDuplicateInstance) {
         ASSERT_THROW(isto::Storage(), std::exception);
+    }
+
+    TEST_F(IstoTest, SavesData) {
+        std::vector<unsigned char> data(256);
+        std::iota(data.begin(), data.end(), 0);
+
+        isto::DataItem dataItem("asdf", data);
+
+        storage.SaveData(dataItem);
     }
 
 }  // namespace
