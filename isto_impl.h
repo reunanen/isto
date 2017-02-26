@@ -17,11 +17,16 @@ namespace isto {
 
         void SaveData(const DataItem& dataItem);
         DataItem GetData(const std::string& id);
+        DataItem GetPermanentData(const std::string& id);
+        DataItem GetRotatingData(const std::string& id);
         DataItem GetData(const timestamp_t& timestamp = std::chrono::high_resolution_clock::now(), const std::string& comparisonOperator = "<=");
         bool MakePermanent(const std::string& id);
 
     private:
-        //SQLite::Database& GetDatabase(bool isPermanent);
+        std::unique_ptr<SQLite::Database>& GetDatabase(bool isPermanent);
+        DataItem GetData(std::unique_ptr<SQLite::Database>& db, const std::string& id);
+
+        std::string GetSubDir(bool isPermanent) const;
         void CreateTablesThatDoNotExist();
         void CreateDirectoriesThatDoNotExist();
         void CreateDatabases();

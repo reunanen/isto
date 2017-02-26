@@ -52,9 +52,19 @@ namespace {
         std::vector<unsigned char> data(256);
         std::iota(data.begin(), data.end(), 0);
 
-        isto::DataItem dataItem("asdf", data);
+        const isto::DataItem dataItem("asdf.bin", data);
 
         storage->SaveData(dataItem);
+
+        const isto::DataItem retrievedDataItem = storage->GetData("asdf.bin");
+
+        EXPECT_EQ(retrievedDataItem.id, dataItem.id);
+        EXPECT_EQ(retrievedDataItem.data, dataItem.data);
+        EXPECT_EQ(retrievedDataItem.isPermanent, dataItem.isPermanent);
+        EXPECT_EQ(retrievedDataItem.isValid, dataItem.isValid);
+
+        // The timestamp can be rounded.
+        EXPECT_LT(std::chrono::duration_cast<std::chrono::microseconds>(retrievedDataItem.timestamp - dataItem.timestamp).count(), 1);
     }
 
 }  // namespace

@@ -22,7 +22,7 @@ namespace isto {
 
         static DataItem Invalid();
 
-        const std::string id; // for example, a guid
+        const std::string id; // for example, a guid (NB: should qualify as a filename too!)
         const std::vector<unsigned char> data;
         const timestamp_t timestamp;
         const bool isPermanent;
@@ -33,7 +33,13 @@ namespace isto {
     };
 
     struct Configuration {
-        std::string baseDirectory = "./data";
+        std::string baseDirectory = 
+#ifdef _WIN32
+            ".\\data"
+#else // _WIN32
+            "./data"
+#endif // _WIN32
+            ;
 
         double maxRotatingDataToKeepInGiB = 100.0;
         double minFreeDiskSpaceInGiB = 0.5;
