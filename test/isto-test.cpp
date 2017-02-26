@@ -7,6 +7,7 @@
 #include "../isto.h"
 #include <gtest/gtest.h>
 #include <numeric> // std::iota
+#include <boost/filesystem.hpp>
 
 namespace {
 
@@ -14,6 +15,12 @@ namespace {
     protected:
         IstoTest() {
             // You can do set-up work for each test here.
+
+            // Clean up existing databases, if any.
+            isto::Configuration defaultConfiguration;
+            boost::filesystem::remove_all(defaultConfiguration.baseDirectory);
+
+            storage = std::unique_ptr<isto::Storage>(new isto::Storage(defaultConfiguration));
         }
 
         virtual ~IstoTest() {
@@ -30,8 +37,7 @@ namespace {
             // before the destructor).
         }
 
-        // Objects declared here can be used by all tests in the test case for Foo.
-        isto::Storage storage;
+        std::unique_ptr<isto::Storage> storage;
     };
 
     // Tests that an image storage can be set up.
@@ -48,7 +54,7 @@ namespace {
 
         isto::DataItem dataItem("asdf", data);
 
-        storage.SaveData(dataItem);
+        storage->SaveData(dataItem);
     }
 
 }  // namespace
