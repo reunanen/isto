@@ -15,15 +15,7 @@ namespace isto {
         : configuration(configuration)
     {
         CreateDirectoriesThatDoNotExist();
-
-        const boost::filesystem::path basePath(configuration.baseDirectory);
-
-        dbRotating = std::unique_ptr<SQLite::Database>(new SQLite::Database((basePath / "rotating" / "isto_rotating.sqlite").string(), SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE));
-        dbPermanent = std::unique_ptr<SQLite::Database>(new SQLite::Database((basePath / "permanent" / "isto_permanent.sqlite").string(), SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE));
-
-        dbRotating->exec("BEGIN EXCLUSIVE");
-        dbPermanent->exec("BEGIN EXCLUSIVE");
-
+        CreateDatabases();
         CreateTablesThatDoNotExist();
         CreateStatements();
     }
@@ -72,6 +64,17 @@ namespace isto {
 
         boost::filesystem::create_directories(basePath / "rotating");
         boost::filesystem::create_directories(basePath / "permanent");
+    }
+
+    void Storage::Impl::CreateDatabases()
+    {
+        const boost::filesystem::path basePath(configuration.baseDirectory);
+
+        dbRotating = std::unique_ptr<SQLite::Database>(new SQLite::Database((basePath / "rotating" / "isto_rotating.sqlite").string(), SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE));
+        dbPermanent = std::unique_ptr<SQLite::Database>(new SQLite::Database((basePath / "permanent" / "isto_permanent.sqlite").string(), SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE));
+
+        dbRotating->exec("BEGIN EXCLUSIVE");
+        dbPermanent->exec("BEGIN EXCLUSIVE");
     }
 
     void Storage::Impl::CreateTablesThatDoNotExist()

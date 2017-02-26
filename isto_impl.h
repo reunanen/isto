@@ -24,6 +24,7 @@ namespace isto {
         //SQLite::Database& GetDatabase(bool isPermanent);
         void CreateTablesThatDoNotExist();
         void CreateDirectoriesThatDoNotExist();
+        void CreateDatabases();
         void CreateStatements();
         void DeleteExcessRotatingData();
 
