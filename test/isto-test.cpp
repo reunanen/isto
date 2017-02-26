@@ -63,8 +63,11 @@ namespace {
         EXPECT_EQ(retrievedDataItem.isPermanent, dataItem.isPermanent);
         EXPECT_EQ(retrievedDataItem.isValid, dataItem.isValid);
 
-        // The timestamp can be rounded.
+        // The timestamp may have been rounded.
         EXPECT_LT(std::chrono::duration_cast<std::chrono::microseconds>(retrievedDataItem.timestamp - dataItem.timestamp).count(), 1);
+
+        // Can't insert a duplicate entry
+        EXPECT_THROW(storage->SaveData(dataItem), std::exception);
     }
 
 }  // namespace
