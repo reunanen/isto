@@ -19,6 +19,7 @@ namespace isto {
         CreateDatabases();
         CreateTablesThatDoNotExist();
         CreateStatements();
+        InitializeCurrentDataItemBytes();
     }
 
     void Storage::Impl::SaveData(const DataItem& dataItem)
@@ -35,6 +36,11 @@ namespace isto {
             // rewrites an already existing file, if any
             std::ofstream out(path, std::ios::binary);
             out.write(reinterpret_cast<const char*>(dataItem.data.data()), dataItem.data.size());
+        }
+
+        if (!dataItem.isPermanent) {
+            DeleteExcessRotatingData(dataItem.data.size());
+            currentRotatingDataItemBytes += dataItem.data.size();
         }
 
         insert->bind(1, dataItem.id);
@@ -144,8 +150,12 @@ namespace isto {
         else {
             assert(dataItem.isPermanent != destinationIsPermanent);
             const DataItem newDataItem(dataItem.id, dataItem.data, dataItem.timestamp, destinationIsPermanent);
-            SaveData(newDataItem);            
+            SaveData(newDataItem);
             DeleteItem(sourceIsPermanent, dataItem.timestamp, dataItem.id);
+            if (!sourceIsPermanent) {
+                assert(currentRotatingDataItemBytes >= dataItem.data.size());
+                currentRotatingDataItemBytes -= dataItem.data.size();
+            }
             return true;
         }
     }
@@ -156,6 +166,7 @@ namespace isto {
         boost::filesystem::remove(sourcePath);
 
         int deleted = GetDatabase(isPermanent)->exec("delete from DataItems where id = '" + id + "'");
+        assert(deleted == 1);
 
         Flush(GetDatabase(isPermanent));
     }
@@ -209,8 +220,40 @@ namespace isto {
         insertPermanent = std::unique_ptr<SQLite::Statement>(new SQLite::Statement(*dbPermanent, "insert into DataItems values (@id, @timestamp, @path, @size)"));
     }
 
-    void Storage::Impl::DeleteExcessRotatingData()
+    void Storage::Impl::InitializeCurrentDataItemBytes()
     {
+        const std::string select = "select sum(size) from DataItems";
+        SQLite::Statement query(*dbRotating, select);
 
+        if (query.executeStep()) {
+            currentRotatingDataItemBytes = query.getColumn(0);
+        }
+        else {
+            throw std::runtime_error("Unable to initialize current data item bytes");
+        }
+    }
+
+    void Storage::Impl::DeleteExcessRotatingData(size_t sizeToBeInserted)
+    {
+        const auto hasExcessData = [&]() {
+            return currentRotatingDataItemBytes + sizeToBeInserted > configuration.maxRotatingDataToKeepInGiB * 1024 * 1024 * 1024;
+        };
+
+        if (hasExcessData()) {
+            const std::string select = "select id, timestamp, size from DataItems order by timestamp asc";
+            SQLite::Statement query(*dbRotating, select);
+            while (hasExcessData() && query.executeStep()) {
+                const std::string id = query.getColumn(0);
+                const std::string timestampString = query.getColumn(1);
+                const size_t size = query.getColumn(2);
+
+                assert(currentRotatingDataItemBytes >= size);
+
+                const auto timestamp = system_clock_time_point_string_conversion::from_string(timestampString);
+                DeleteItem(false, timestamp, id);
+
+                currentRotatingDataItemBytes -= size;
+            }
+        }
     }
 }

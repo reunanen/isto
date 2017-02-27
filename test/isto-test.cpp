@@ -23,6 +23,9 @@ namespace {
             configuration.baseDirectory = "./test-data";
 #endif // WIN32
 
+            const double byteInGiB = 1.0 / 1024 / 1024 / 1024;
+            configuration.maxRotatingDataToKeepInGiB = 1024 * byteInGiB; // 1 kB
+
             // Clean up existing databases, if any.
             boost::filesystem::remove_all(configuration.baseDirectory);
 
@@ -98,6 +101,20 @@ namespace {
         const isto::DataItem retrievedDataItem = storage->GetData(sampleDataId);
         EXPECT_TRUE(retrievedDataItem.isValid);
         EXPECT_EQ(retrievedDataItem.id, sampleDataItem->id);
+    }
+
+    TEST_F(IstoTest, RemovesExcessData) {
+        for (int i = 0; i < 10; ++i) {
+            std::ostringstream oss;
+            oss << i << ".bin";
+            
+            storage->SaveData(isto::DataItem(oss.str(), sampleDataItem->data));
+        }
+
+        EXPECT_FALSE(storage->GetData("0.bin").isValid);
+        EXPECT_FALSE(storage->GetData("1.bin").isValid);
+        EXPECT_TRUE(storage->GetData("8.bin").isValid);
+        EXPECT_TRUE(storage->GetData("9.bin").isValid);
     }
 
 }  // namespace

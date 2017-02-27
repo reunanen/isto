@@ -35,7 +35,9 @@ namespace isto {
         void CreateDirectoriesThatDoNotExist();
         void CreateDatabases();
         void CreateStatements();
-        void DeleteExcessRotatingData();
+        void InitializeCurrentDataItemBytes();
+
+        void DeleteExcessRotatingData(size_t sizeToBeInserted);
 
         bool MoveDataItem(bool sourceIsPermanent, bool destinationIsPermanent, const std::string& id);
         void DeleteItem(bool isPermanent, const timestamp_t& timestamp, const std::string& id);
@@ -47,6 +49,8 @@ namespace isto {
         std::unique_ptr<SQLite::Database> dbPermanent;
         std::unique_ptr<SQLite::Statement> insertRotating;
         std::unique_ptr<SQLite::Statement> insertPermanent;
+
+        size_t currentRotatingDataItemBytes = -1;
     };
 
 };
