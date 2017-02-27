@@ -32,7 +32,7 @@ namespace {
                 std::vector<unsigned char> sampleData(256);
                 std::iota(sampleData.begin(), sampleData.end(), 0);
                 
-                sampleDataItem = std::unique_ptr<isto::DataItem>(new isto::DataItem("asdf.bin", sampleData));
+                sampleDataItem = std::unique_ptr<isto::DataItem>(new isto::DataItem(sampleDataId, sampleData));
             }
         }
 
@@ -52,6 +52,7 @@ namespace {
 
         isto::Configuration configuration;
         std::unique_ptr<isto::Storage> storage;
+        const char* sampleDataId = "asdf.bin";
         std::unique_ptr<isto::DataItem> sampleDataItem;
     };
 
@@ -66,7 +67,7 @@ namespace {
     TEST_F(IstoTest, SavesAndReadsData) {
         storage->SaveData(*sampleDataItem);
 
-        const isto::DataItem retrievedDataItem = storage->GetData("asdf.bin");
+        const isto::DataItem retrievedDataItem = storage->GetData(sampleDataId);
 
         EXPECT_EQ(retrievedDataItem.id, sampleDataItem->id);
         EXPECT_EQ(retrievedDataItem.data, sampleDataItem->data);
@@ -85,7 +86,18 @@ namespace {
     TEST_F(IstoTest, MakesPermanentAndRotating) {
         storage->SaveData(*sampleDataItem);
         EXPECT_TRUE(storage->MakePermanent(sampleDataItem->id));
+        EXPECT_EQ(storage->GetData(sampleDataItem->id).isPermanent, true);
         EXPECT_TRUE(storage->MakeRotating(sampleDataItem->id));
+        EXPECT_EQ(storage->GetData(sampleDataItem->id).isPermanent, false);
+    }
+
+    TEST_F(IstoTest, PersistsData) {
+        storage->SaveData(*sampleDataItem);
+        storage.reset(); // destruct the storage object
+        storage = std::unique_ptr<isto::Storage>(new isto::Storage(configuration));
+        const isto::DataItem retrievedDataItem = storage->GetData(sampleDataId);
+        EXPECT_TRUE(retrievedDataItem.isValid);
+        EXPECT_EQ(retrievedDataItem.id, sampleDataItem->id);
     }
 
 }  // namespace

@@ -45,6 +45,8 @@ namespace isto {
         insert->executeStep();
         insert->clearBindings();
         insert->reset();
+
+        Flush(GetDatabase(dataItem.isPermanent));
     }
 
     DataItem Storage::Impl::GetData(const std::string& id)
@@ -154,6 +156,14 @@ namespace isto {
         boost::filesystem::remove(sourcePath);
 
         int deleted = GetDatabase(isPermanent)->exec("delete from DataItems where id = '" + id + "'");
+
+        Flush(GetDatabase(isPermanent));
+    }
+
+    void Storage::Impl::Flush(std::unique_ptr<SQLite::Database>& db)
+    {
+        db->exec("commit");
+        db->exec("begin exclusive");
     }
 
     std::unique_ptr<SQLite::Database>& Storage::Impl::GetDatabase(bool isPermanent)
@@ -181,8 +191,8 @@ namespace isto {
         dbRotating = std::unique_ptr<SQLite::Database>(new SQLite::Database((boost::filesystem::path(GetSubDir(false)) / "isto_rotating.sqlite").string(), SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE));
         dbPermanent = std::unique_ptr<SQLite::Database>(new SQLite::Database((boost::filesystem::path(GetSubDir(true)) / "isto_permanent.sqlite").string(), SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE));
 
-        dbRotating->exec("BEGIN EXCLUSIVE");
-        dbPermanent->exec("BEGIN EXCLUSIVE");
+        dbRotating->exec("begin exclusive");
+        dbPermanent->exec("begin exclusive");
     }
 
     void Storage::Impl::CreateTablesThatDoNotExist()
