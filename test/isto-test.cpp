@@ -156,7 +156,7 @@ namespace {
         EXPECT_TRUE(storage->GetData("39.bin").isValid);
     }
 
-    TEST_F(IstoTest, DoesNotSaveAnythingIfHardDiskAlreadyFull) {
+    TEST_F(IstoTest, DoesNotSaveRotatingIfHardDiskAlreadyFull) {
         const auto space = boost::filesystem::space(boost::filesystem::path(configuration.baseDirectory));
 
         configuration.maxRotatingDataToKeepInGiB = 1.0;
@@ -169,6 +169,25 @@ namespace {
         storage->SaveData(*sampleDataItem);
 
         EXPECT_FALSE(storage->GetData(sampleDataId).isValid);
+    }
+
+    TEST_F(IstoTest, DoesSavePermanentEvenIfHardDiskAlreadyFull) {
+        const auto space = boost::filesystem::space(boost::filesystem::path(configuration.baseDirectory));
+
+        configuration.maxRotatingDataToKeepInGiB = 1.0;
+        configuration.minFreeDiskSpaceInGiB = space.free / 1024.0 / 1024.0 / 1024.0;
+
+        // Take the updated configuration in use
+        storage.reset();
+        storage = std::unique_ptr<isto::Storage>(new isto::Storage(configuration));
+
+        std::vector<unsigned char> data(256);
+
+        isto::DataItem permanentDataItem("perm.bin", data, isto::now(), true);
+
+        storage->SaveData(permanentDataItem);
+
+        EXPECT_TRUE(storage->GetData(permanentDataItem.id).isValid);
     }
 
 }  // namespace
