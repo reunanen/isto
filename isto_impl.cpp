@@ -22,8 +22,15 @@ namespace isto {
         InitializeCurrentDataItemBytes();
     }
 
-    void Storage::Impl::SaveData(const DataItem& dataItem)
+    bool Storage::Impl::SaveData(const DataItem& dataItem)
     {
+        if (!dataItem.isPermanent) {
+            if (!DeleteExcessRotatingData(dataItem.data.size())) {
+                return false;
+            }
+            currentRotatingDataItemBytes += dataItem.data.size();
+        }
+
         auto& insert = dataItem.isPermanent ? insertPermanent : insertRotating;
 
         const std::string timestamp = system_clock_time_point_string_conversion::to_string(dataItem.timestamp);
@@ -38,11 +45,6 @@ namespace isto {
             out.write(reinterpret_cast<const char*>(dataItem.data.data()), dataItem.data.size());
         }
 
-        if (!dataItem.isPermanent) {
-            DeleteExcessRotatingData(dataItem.data.size());
-            currentRotatingDataItemBytes += dataItem.data.size();
-        }
-
         insert->bind(1, dataItem.id);
         insert->bind(2, timestamp);
         insert->bind(3, path);
@@ -53,6 +55,8 @@ namespace isto {
         insert->reset();
 
         Flush(GetDatabase(dataItem.isPermanent));
+
+        return true;
     }
 
     DataItem Storage::Impl::GetData(const std::string& id)
@@ -150,14 +154,18 @@ namespace isto {
         else {
             assert(dataItem.isPermanent != destinationIsPermanent);
             const DataItem newDataItem(dataItem.id, dataItem.data, dataItem.timestamp, destinationIsPermanent);
-            SaveData(newDataItem);
-            DeleteItem(sourceIsPermanent, dataItem.timestamp, dataItem.id);
-            Flush(GetDatabase(sourceIsPermanent));
-            if (!sourceIsPermanent) {
-                assert(currentRotatingDataItemBytes >= dataItem.data.size());
-                currentRotatingDataItemBytes -= dataItem.data.size();
+            if (SaveData(newDataItem)) {
+                DeleteItem(sourceIsPermanent, dataItem.timestamp, dataItem.id);
+                Flush(GetDatabase(sourceIsPermanent));
+                if (!sourceIsPermanent) {
+                    assert(currentRotatingDataItemBytes >= dataItem.data.size());
+                    currentRotatingDataItemBytes -= dataItem.data.size();
+                }
+                return true;
             }
-            return true;
+            else {
+                return false;
+            }
         }
     }
 
@@ -232,7 +240,7 @@ namespace isto {
         }
     }
 
-    void Storage::Impl::DeleteExcessRotatingData(size_t sizeToBeInserted)
+    bool Storage::Impl::DeleteExcessRotatingData(size_t sizeToBeInserted)
     {
         auto hardDiskFreeBytes = boost::filesystem::space(boost::filesystem::path(configuration.baseDirectory)).free;
 
@@ -258,5 +266,7 @@ namespace isto {
                 hardDiskFreeBytes += size;
             }
         }
+
+        return !hasExcessData();
     }
 }

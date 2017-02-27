@@ -156,4 +156,19 @@ namespace {
         EXPECT_TRUE(storage->GetData("39.bin").isValid);
     }
 
+    TEST_F(IstoTest, DoesNotSaveAnythingIfHardDiskAlreadyFull) {
+        const auto space = boost::filesystem::space(boost::filesystem::path(configuration.baseDirectory));
+
+        configuration.maxRotatingDataToKeepInGiB = 1.0;
+        configuration.minFreeDiskSpaceInGiB = space.free / 1024.0 / 1024.0 / 1024.0;
+
+        // Take the updated configuration in use
+        storage.reset();
+        storage = std::unique_ptr<isto::Storage>(new isto::Storage(configuration));
+
+        storage->SaveData(*sampleDataItem);
+
+        EXPECT_FALSE(storage->GetData(sampleDataId).isValid);
+    }
+
 }  // namespace

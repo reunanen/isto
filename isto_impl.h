@@ -15,7 +15,7 @@ namespace isto {
     public:
         Impl(const Configuration& configuration);
 
-        void SaveData(const DataItem& dataItem);
+        bool SaveData(const DataItem& dataItem);
         DataItem GetData(const std::string& id);
         DataItem GetPermanentData(const std::string& id);
         DataItem GetRotatingData(const std::string& id);
@@ -37,7 +37,8 @@ namespace isto {
         void CreateStatements();
         void InitializeCurrentDataItemBytes();
 
-        void DeleteExcessRotatingData(size_t sizeToBeInserted);
+        // returns true if ok to save
+        bool DeleteExcessRotatingData(size_t sizeToBeInserted);
 
         bool MoveDataItem(bool sourceIsPermanent, bool destinationIsPermanent, const std::string& id);
         void DeleteItem(bool isPermanent, const timestamp_t& timestamp, const std::string& id);
