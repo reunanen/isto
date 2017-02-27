@@ -23,16 +23,13 @@ namespace {
             configuration.baseDirectory = "./test-data";
 #endif // WIN32
 
-            const double byteInGiB = 1.0 / 1024 / 1024 / 1024;
-            configuration.maxRotatingDataToKeepInGiB = 1024 * byteInGiB; // 1 kB
-
             // Clean up existing databases, if any.
             boost::filesystem::remove_all(configuration.baseDirectory);
 
             storage = std::unique_ptr<isto::Storage>(new isto::Storage(configuration));
 
             {
-                std::vector<unsigned char> sampleData(256);
+                std::vector<unsigned char> sampleData(4096);
                 std::iota(sampleData.begin(), sampleData.end(), 0);
                 
                 sampleDataItem = std::unique_ptr<isto::DataItem>(new isto::DataItem(sampleDataId, sampleData));
@@ -117,6 +114,13 @@ namespace {
     }    
 
     TEST_F(IstoTest, RemovesExcessData) {
+        // Set up new, tight limits
+        configuration.maxRotatingDataToKeepInGiB = 8.0 / 1024 / 1024; // 8 kiB
+
+        // Take the updated configuration in use
+        storage.reset();
+        storage = std::unique_ptr<isto::Storage>(new isto::Storage(configuration));
+
         SaveSequentialData(10);
 
         EXPECT_FALSE(storage->GetData("0.bin").isValid);
@@ -131,12 +135,13 @@ namespace {
         // First fill up the database
         SaveSequentialData(20);
 
+        EXPECT_TRUE(storage->MakePermanent("3.bin"));
+
         const auto afterSaving1 = boost::filesystem::space(boost::filesystem::path(configuration.baseDirectory));
-        EXPECT_LT(afterSaving1.free, initialSpace.free);
 
         // Set up new, tight limits
         configuration.maxRotatingDataToKeepInGiB = 1.0;
-        configuration.minFreeDiskSpaceInGiB = (afterSaving1.free - 4096) / 1024.0 / 1024.0 / 1024.0;
+        configuration.minFreeDiskSpaceInGiB = (afterSaving1.free - 2 * 4096) / 1024.0 / 1024.0 / 1024.0;
 
         // Take the updated configuration in use
         storage.reset();
@@ -146,12 +151,12 @@ namespace {
 
         const auto afterSaving2 = boost::filesystem::space(boost::filesystem::path(configuration.baseDirectory));
 
-        EXPECT_EQ(afterSaving1.free, afterSaving2.free);
-
         EXPECT_FALSE(storage->GetData("0.bin").isValid);
         EXPECT_FALSE(storage->GetData("1.bin").isValid);
-        EXPECT_FALSE(storage->GetData("10.bin").isValid);
-        EXPECT_FALSE(storage->GetData("11.bin").isValid);
+        EXPECT_FALSE(storage->GetData("2.bin").isValid);
+        EXPECT_TRUE(storage->GetData("3.bin").isValid);
+        EXPECT_FALSE(storage->GetData("4.bin").isValid);
+        EXPECT_FALSE(storage->GetData("5.bin").isValid);
         EXPECT_TRUE(storage->GetData("38.bin").isValid);
         EXPECT_TRUE(storage->GetData("39.bin").isValid);
     }
@@ -181,7 +186,7 @@ namespace {
         storage.reset();
         storage = std::unique_ptr<isto::Storage>(new isto::Storage(configuration));
 
-        std::vector<unsigned char> data(256);
+        std::vector<unsigned char> data(4096);
 
         isto::DataItem permanentDataItem("perm.bin", data, isto::now(), true);
 
