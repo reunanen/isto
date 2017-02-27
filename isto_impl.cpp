@@ -152,6 +152,7 @@ namespace isto {
             const DataItem newDataItem(dataItem.id, dataItem.data, dataItem.timestamp, destinationIsPermanent);
             SaveData(newDataItem);
             DeleteItem(sourceIsPermanent, dataItem.timestamp, dataItem.id);
+            Flush(GetDatabase(sourceIsPermanent));
             if (!sourceIsPermanent) {
                 assert(currentRotatingDataItemBytes >= dataItem.data.size());
                 currentRotatingDataItemBytes -= dataItem.data.size();
@@ -167,8 +168,6 @@ namespace isto {
 
         int deleted = GetDatabase(isPermanent)->exec("delete from DataItems where id = '" + id + "'");
         assert(deleted == 1);
-
-        Flush(GetDatabase(isPermanent));
     }
 
     void Storage::Impl::Flush(std::unique_ptr<SQLite::Database>& db)
