@@ -53,10 +53,23 @@ namespace {
             // before the destructor).
         }
 
+        void SaveSequentialData(int count) {
+            for (int i = 0; i < count; ++i) {
+                std::ostringstream oss;
+                oss << sequentialDataCounter << ".bin";
+
+                storage->SaveData(isto::DataItem(oss.str(), sampleDataItem->data));
+
+                ++sequentialDataCounter;
+            }
+        }
+
         isto::Configuration configuration;
         std::unique_ptr<isto::Storage> storage;
         const char* sampleDataId = "asdf.bin";
         std::unique_ptr<isto::DataItem> sampleDataItem;
+
+        uintmax_t sequentialDataCounter = 0;
     };
 
     // Tests that an image storage can be set up.
@@ -101,20 +114,46 @@ namespace {
         const isto::DataItem retrievedDataItem = storage->GetData(sampleDataId);
         EXPECT_TRUE(retrievedDataItem.isValid);
         EXPECT_EQ(retrievedDataItem.id, sampleDataItem->id);
-    }
+    }    
 
     TEST_F(IstoTest, RemovesExcessData) {
-        for (int i = 0; i < 10; ++i) {
-            std::ostringstream oss;
-            oss << i << ".bin";
-            
-            storage->SaveData(isto::DataItem(oss.str(), sampleDataItem->data));
-        }
+        SaveSequentialData(10);
 
         EXPECT_FALSE(storage->GetData("0.bin").isValid);
         EXPECT_FALSE(storage->GetData("1.bin").isValid);
         EXPECT_TRUE(storage->GetData("8.bin").isValid);
         EXPECT_TRUE(storage->GetData("9.bin").isValid);
+    }
+
+    TEST_F(IstoTest, DoesNotFillHardDisk) {
+        const auto initialSpace = boost::filesystem::space(boost::filesystem::path(configuration.baseDirectory));
+
+        // First fill up the database
+        SaveSequentialData(20);
+
+        const auto afterSaving1 = boost::filesystem::space(boost::filesystem::path(configuration.baseDirectory));
+        EXPECT_LT(afterSaving1.free, initialSpace.free);
+
+        // Set up new, tight limits
+        configuration.maxRotatingDataToKeepInGiB = 1.0;
+        configuration.minFreeDiskSpaceInGiB = (afterSaving1.free - 4096) / 1024.0 / 1024.0 / 1024.0;
+
+        // Take the updated configuration in use
+        storage.reset();
+        storage = std::unique_ptr<isto::Storage>(new isto::Storage(configuration));
+
+        SaveSequentialData(20);
+
+        const auto afterSaving2 = boost::filesystem::space(boost::filesystem::path(configuration.baseDirectory));
+
+        EXPECT_EQ(afterSaving1.free, afterSaving2.free);
+
+        EXPECT_FALSE(storage->GetData("0.bin").isValid);
+        EXPECT_FALSE(storage->GetData("1.bin").isValid);
+        EXPECT_FALSE(storage->GetData("10.bin").isValid);
+        EXPECT_FALSE(storage->GetData("11.bin").isValid);
+        EXPECT_TRUE(storage->GetData("38.bin").isValid);
+        EXPECT_TRUE(storage->GetData("39.bin").isValid);
     }
 
 }  // namespace

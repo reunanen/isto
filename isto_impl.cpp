@@ -234,8 +234,11 @@ namespace isto {
 
     void Storage::Impl::DeleteExcessRotatingData(size_t sizeToBeInserted)
     {
+        auto hardDiskFreeBytes = boost::filesystem::space(boost::filesystem::path(configuration.baseDirectory)).free;
+
         const auto hasExcessData = [&]() {
-            return currentRotatingDataItemBytes + sizeToBeInserted > configuration.maxRotatingDataToKeepInGiB * 1024 * 1024 * 1024;
+            return currentRotatingDataItemBytes + sizeToBeInserted > configuration.maxRotatingDataToKeepInGiB * 1024 * 1024 * 1024
+                || hardDiskFreeBytes - sizeToBeInserted < configuration.minFreeDiskSpaceInGiB * 1024 * 1024 * 1024;
         };
 
         if (hasExcessData()) {
@@ -252,6 +255,7 @@ namespace isto {
                 DeleteItem(false, timestamp, id);
 
                 currentRotatingDataItemBytes -= size;
+                hardDiskFreeBytes += size;
             }
         }
     }
