@@ -42,15 +42,9 @@ namespace isto {
         insert->bind(3, path);
         insert->bind(4, dataItem.data.size());
 
-        try {
-            insert->executeStep();
-            insert->clearBindings();
-            insert->reset();
-        }
-        catch (std::exception& e) {
-            insert->reset();
-            throw e;
-        }
+        insert->executeStep();
+        insert->clearBindings();
+        insert->reset();
     }
 
     DataItem Storage::Impl::GetData(const std::string& id)
