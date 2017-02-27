@@ -65,4 +65,9 @@ namespace isto {
         return impl->MakePermanent(id);
     }
 
+    bool Storage::MakeRotating(const std::string& id)
+    {
+        return impl->MakeRotating(id);
+    }
+
 }

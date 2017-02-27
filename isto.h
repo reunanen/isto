@@ -63,6 +63,9 @@ namespace isto {
         // - for example, if manually labeled in a supervised training setting
         bool MakePermanent(const std::string& id);
 
+        // Unmake permanent
+        bool MakeRotating(const std::string& id);
+
     private:
         class Impl;
         Impl* impl;

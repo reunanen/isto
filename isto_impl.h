@@ -21,17 +21,24 @@ namespace isto {
         DataItem GetRotatingData(const std::string& id);
         DataItem GetData(const timestamp_t& timestamp = std::chrono::high_resolution_clock::now(), const std::string& comparisonOperator = "<=");
         bool MakePermanent(const std::string& id);
+        bool MakeRotating(const std::string& id);
 
     private:
         std::unique_ptr<SQLite::Database>& GetDatabase(bool isPermanent);
         DataItem GetData(std::unique_ptr<SQLite::Database>& db, const std::string& id);
 
         std::string GetSubDir(bool isPermanent) const;
+        std::string GetDirectory(bool isPermanent, const timestamp_t& timestamp) const;
+        std::string GetPath(bool isPermanent, const timestamp_t& timestamp, const std::string& id) const;
+
         void CreateTablesThatDoNotExist();
         void CreateDirectoriesThatDoNotExist();
         void CreateDatabases();
         void CreateStatements();
         void DeleteExcessRotatingData();
+
+        bool MoveDataItem(bool sourceIsPermanent, bool destinationIsPermanent, const std::string& id);
+        void DeleteItem(bool isPermanent, const timestamp_t& timestamp, const std::string& id);
 
         Configuration configuration;
         std::unique_ptr<SQLite::Database> dbRotating;

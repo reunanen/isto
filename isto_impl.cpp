@@ -6,8 +6,9 @@
 
 #include "isto_impl.h"
 #include "SQLiteCpp/sqlite3/sqlite3.h"
-#include <boost/filesystem.hpp>
+//#include "SQLiteCpp/include/SQLiteCpp/Transaction.h"
 #include "system_clock_time_point_string_conversion/system_clock_time_point_string_conversion.h"
+#include <boost/filesystem.hpp>
 #include <sstream>
 
 namespace isto {
@@ -26,25 +27,30 @@ namespace isto {
 
         const std::string timestamp = system_clock_time_point_string_conversion::to_string(dataItem.timestamp);
 
-        boost::filesystem::path path = boost::filesystem::path(GetSubDir(dataItem.isPermanent)) / timestamp.substr(0, 10) / timestamp.substr(11, 2) / timestamp.substr(14, 2);
-        boost::filesystem::create_directories(path);
+        boost::filesystem::create_directories(GetDirectory(dataItem.isPermanent, dataItem.timestamp));
 
-        path /= dataItem.id; // note that the id doubles as a filename
+        const std::string path = GetPath(dataItem.isPermanent, dataItem.timestamp, dataItem.id);
 
         {
             // rewrites an already existing file, if any
-            std::ofstream out(path.string(), std::ios::binary);
+            std::ofstream out(path, std::ios::binary);
             out.write(reinterpret_cast<const char*>(dataItem.data.data()), dataItem.data.size());
         }
 
         insert->bind(1, dataItem.id);
         insert->bind(2, timestamp);
-        insert->bind(3, path.string());
+        insert->bind(3, path);
         insert->bind(4, dataItem.data.size());
 
-        insert->executeStep();
-        insert->clearBindings();
-        insert->reset();
+        try {
+            insert->executeStep();
+            insert->clearBindings();
+            insert->reset();
+        }
+        catch (std::exception& e) {
+            insert->reset();
+            throw e;
+        }
     }
 
     DataItem Storage::Impl::GetData(const std::string& id)
@@ -105,9 +111,55 @@ namespace isto {
         return DataItem::Invalid();
     }
 
+    std::string Storage::Impl::GetDirectory(bool isPermanent, const timestamp_t& timestamp) const
+    {
+        const std::string timestampString = system_clock_time_point_string_conversion::to_string(timestamp);
+        return (boost::filesystem::path(GetSubDir(isPermanent)) / timestampString.substr(0, 10) / timestampString.substr(11, 2) / timestampString.substr(14, 2)).string();
+    }
+
+    std::string Storage::Impl::GetPath(bool isPermanent, const timestamp_t& timestamp, const std::string& id) const
+    {
+        // note that the id doubles as a filename
+        return (boost::filesystem::path(GetDirectory(isPermanent, timestamp)) / id).string();
+    }
+
     bool Storage::Impl::MakePermanent(const std::string& id)
     {
-        return false;
+        return MoveDataItem(false, true, id);
+    }
+
+    bool Storage::Impl::MakeRotating(const std::string& id)
+    {
+        return MoveDataItem(true, false, id);
+    }
+
+    bool Storage::Impl::MoveDataItem(bool sourceIsPermanent, bool destinationIsPermanent, const std::string& id)
+    {
+        assert(sourceIsPermanent != destinationIsPermanent);
+
+        // TODO: could be optimized by moving the file (see boost::filesystem::rename) - instead of reading, writing, and deleting
+
+        std::unique_ptr<SQLite::Database>& dbSource = GetDatabase(sourceIsPermanent);
+
+        const DataItem dataItem = GetData(dbSource, id);
+        if (!dataItem.isValid) {
+            return false;
+        }
+        else {
+            assert(dataItem.isPermanent != destinationIsPermanent);
+            const DataItem newDataItem(dataItem.id, dataItem.data, dataItem.timestamp, destinationIsPermanent);
+            SaveData(newDataItem);            
+            DeleteItem(sourceIsPermanent, dataItem.timestamp, dataItem.id);
+            return true;
+        }
+    }
+
+    void Storage::Impl::DeleteItem(bool isPermanent, const timestamp_t& timestamp, const std::string& id)
+    {
+        boost::filesystem::path sourcePath = GetPath(isPermanent, timestamp, id);
+        boost::filesystem::remove(sourcePath);
+
+        int deleted = GetDatabase(isPermanent)->exec("delete from DataItems where id = '" + id + "'");
     }
 
     std::unique_ptr<SQLite::Database>& Storage::Impl::GetDatabase(bool isPermanent)
@@ -124,16 +176,16 @@ namespace isto {
     {
         const boost::filesystem::path basePath(configuration.baseDirectory);
 
-        boost::filesystem::create_directories(basePath / "rotating");
-        boost::filesystem::create_directories(basePath / "permanent");
+        boost::filesystem::create_directories(GetSubDir(false));
+        boost::filesystem::create_directories(GetSubDir(true));
     }
 
     void Storage::Impl::CreateDatabases()
     {
         const boost::filesystem::path basePath(configuration.baseDirectory);
 
-        dbRotating = std::unique_ptr<SQLite::Database>(new SQLite::Database((basePath / "rotating" / "isto_rotating.sqlite").string(), SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE));
-        dbPermanent = std::unique_ptr<SQLite::Database>(new SQLite::Database((basePath / "permanent" / "isto_permanent.sqlite").string(), SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE));
+        dbRotating = std::unique_ptr<SQLite::Database>(new SQLite::Database((boost::filesystem::path(GetSubDir(false)) / "isto_rotating.sqlite").string(), SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE));
+        dbPermanent = std::unique_ptr<SQLite::Database>(new SQLite::Database((boost::filesystem::path(GetSubDir(true)) / "isto_permanent.sqlite").string(), SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE));
 
         dbRotating->exec("BEGIN EXCLUSIVE");
         dbPermanent->exec("BEGIN EXCLUSIVE");

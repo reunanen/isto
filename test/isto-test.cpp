@@ -16,11 +16,24 @@ namespace {
         IstoTest() {
             // You can do set-up work for each test here.
 
-            // Clean up existing databases, if any.
-            isto::Configuration defaultConfiguration;
-            boost::filesystem::remove_all(defaultConfiguration.baseDirectory);
+            // Set the directory name so that we shouldn't ever delete any real data.
+#ifdef WIN32
+            configuration.baseDirectory = ".\\test-data";
+#else // WIN32
+            configuration.baseDirectory = "./test-data";
+#endif // WIN32
 
-            storage = std::unique_ptr<isto::Storage>(new isto::Storage(defaultConfiguration));
+            // Clean up existing databases, if any.
+            boost::filesystem::remove_all(configuration.baseDirectory);
+
+            storage = std::unique_ptr<isto::Storage>(new isto::Storage(configuration));
+
+            {
+                std::vector<unsigned char> sampleData(256);
+                std::iota(sampleData.begin(), sampleData.end(), 0);
+                
+                sampleDataItem = std::unique_ptr<isto::DataItem>(new isto::DataItem("asdf.bin", sampleData));
+            }
         }
 
         virtual ~IstoTest() {
@@ -37,7 +50,9 @@ namespace {
             // before the destructor).
         }
 
+        isto::Configuration configuration;
         std::unique_ptr<isto::Storage> storage;
+        std::unique_ptr<isto::DataItem> sampleDataItem;
     };
 
     // Tests that an image storage can be set up.
@@ -45,29 +60,32 @@ namespace {
     }
 
     TEST_F(IstoTest, CannotCreateDuplicateInstance) {
-        ASSERT_THROW(isto::Storage(), std::exception);
+        ASSERT_THROW(new isto::Storage(configuration), std::exception);
     }
 
-    TEST_F(IstoTest, SavesData) {
-        std::vector<unsigned char> data(256);
-        std::iota(data.begin(), data.end(), 0);
-
-        const isto::DataItem dataItem("asdf.bin", data);
-
-        storage->SaveData(dataItem);
+    TEST_F(IstoTest, SavesAndReadsData) {
+        storage->SaveData(*sampleDataItem);
 
         const isto::DataItem retrievedDataItem = storage->GetData("asdf.bin");
 
-        EXPECT_EQ(retrievedDataItem.id, dataItem.id);
-        EXPECT_EQ(retrievedDataItem.data, dataItem.data);
-        EXPECT_EQ(retrievedDataItem.isPermanent, dataItem.isPermanent);
-        EXPECT_EQ(retrievedDataItem.isValid, dataItem.isValid);
+        EXPECT_EQ(retrievedDataItem.id, sampleDataItem->id);
+        EXPECT_EQ(retrievedDataItem.data, sampleDataItem->data);
+        EXPECT_EQ(retrievedDataItem.isPermanent, sampleDataItem->isPermanent);
+        EXPECT_EQ(retrievedDataItem.isValid, sampleDataItem->isValid);
 
         // The timestamp may have been rounded.
-        EXPECT_LT(std::chrono::duration_cast<std::chrono::microseconds>(retrievedDataItem.timestamp - dataItem.timestamp).count(), 1);
+        EXPECT_LT(std::chrono::duration_cast<std::chrono::microseconds>(retrievedDataItem.timestamp - sampleDataItem->timestamp).count(), 1);
+    }
 
-        // Can't insert a duplicate entry
-        EXPECT_THROW(storage->SaveData(dataItem), std::exception);
+    TEST_F(IstoTest, DoesNotInsertDuplicateData) {
+        EXPECT_NO_THROW(storage->SaveData(*sampleDataItem));
+        EXPECT_THROW(storage->SaveData(*sampleDataItem), std::exception);
+    }
+
+    TEST_F(IstoTest, MakesPermanentAndRotating) {
+        storage->SaveData(*sampleDataItem);
+        EXPECT_TRUE(storage->MakePermanent(sampleDataItem->id));
+        EXPECT_TRUE(storage->MakeRotating(sampleDataItem->id));
     }
 
 }  // namespace
