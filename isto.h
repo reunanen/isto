@@ -33,13 +33,13 @@ namespace isto {
     };
 
     struct Configuration {
-        std::string baseDirectory = 
 #ifdef _WIN32
-            ".\\data"
+        std::string rotatingDirectory = ".\\data\\rotating";
+        std::string permanentDirectory = ".\\data\\permanent";
 #else // _WIN32
-            "./data"
+        std::string rotatingDirectory = "./data/rotating";
+        std::string permanentDirectory = "./data/permanent";
 #endif // _WIN32
-            ;
 
         double maxRotatingDataToKeepInGiB = 100.0;
         double minFreeDiskSpaceInGiB = 0.5;

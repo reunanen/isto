@@ -18,13 +18,16 @@ namespace {
 
             // Set the directory name so that we shouldn't ever delete any real data.
 #ifdef WIN32
-            configuration.baseDirectory = ".\\test-data";
+            std::string rotatingDirectory = ".\\test-data\\rotating";
+            std::string permanentDirectory = ".\\test-data\\permanent";
 #else // WIN32
-            configuration.baseDirectory = "./test-data";
+            std::string rotatingDirectory = ".//test-data//rotating";
+            std::string permanentDirectory = ".//test-data//permanent";
 #endif // WIN32
 
             // Clean up existing databases, if any.
-            boost::filesystem::remove_all(configuration.baseDirectory);
+            boost::filesystem::remove_all(configuration.rotatingDirectory);
+            boost::filesystem::remove_all(configuration.permanentDirectory);
 
             storage = std::unique_ptr<isto::Storage>(new isto::Storage(configuration));
 
@@ -130,14 +133,14 @@ namespace {
     }
 
     TEST_F(IstoTest, DoesNotFillHardDisk) {
-        const auto initialSpace = boost::filesystem::space(boost::filesystem::path(configuration.baseDirectory));
+        const auto initialSpace = boost::filesystem::space(boost::filesystem::path(configuration.rotatingDirectory));
 
         // First fill up the database
         SaveSequentialData(20);
 
         EXPECT_TRUE(storage->MakePermanent("3.bin"));
 
-        const auto afterSaving1 = boost::filesystem::space(boost::filesystem::path(configuration.baseDirectory));
+        const auto afterSaving1 = boost::filesystem::space(boost::filesystem::path(configuration.rotatingDirectory));
 
         // Set up new, tight limits
         configuration.maxRotatingDataToKeepInGiB = 1.0;
@@ -149,7 +152,7 @@ namespace {
 
         SaveSequentialData(20);
 
-        const auto afterSaving2 = boost::filesystem::space(boost::filesystem::path(configuration.baseDirectory));
+        const auto afterSaving2 = boost::filesystem::space(boost::filesystem::path(configuration.rotatingDirectory));
 
         EXPECT_FALSE(storage->GetData("0.bin").isValid);
         EXPECT_FALSE(storage->GetData("1.bin").isValid);
@@ -162,7 +165,7 @@ namespace {
     }
 
     TEST_F(IstoTest, DoesNotSaveRotatingIfHardDiskAlreadyFull) {
-        const auto space = boost::filesystem::space(boost::filesystem::path(configuration.baseDirectory));
+        const auto space = boost::filesystem::space(boost::filesystem::path(configuration.rotatingDirectory));
 
         configuration.maxRotatingDataToKeepInGiB = 1.0;
         configuration.minFreeDiskSpaceInGiB = space.free / 1024.0 / 1024.0 / 1024.0;
@@ -176,8 +179,8 @@ namespace {
         EXPECT_FALSE(storage->GetData(sampleDataId).isValid);
     }
 
-    TEST_F(IstoTest, DoesSavePermanentEvenIfHardDiskAlreadyFull) {
-        const auto space = boost::filesystem::space(boost::filesystem::path(configuration.baseDirectory));
+    TEST_F(IstoTest, DoesSavePermanentEvenIfRotatingAlreadyFull) {
+        const auto space = boost::filesystem::space(boost::filesystem::path(configuration.rotatingDirectory));
 
         configuration.maxRotatingDataToKeepInGiB = 1.0;
         configuration.minFreeDiskSpaceInGiB = space.free / 1024.0 / 1024.0 / 1024.0;

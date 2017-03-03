@@ -291,21 +291,17 @@ namespace isto {
 
     std::string Storage::Impl::GetSubDir(bool isPermanent) const
     {
-        return (boost::filesystem::path(configuration.baseDirectory) / (isPermanent ? "permanent" : "rotating")).string();
+        return boost::filesystem::path(isPermanent ? configuration.permanentDirectory : configuration.rotatingDirectory).string();
     }
 
     void Storage::Impl::CreateDirectoriesThatDoNotExist()
     {
-        const boost::filesystem::path basePath(configuration.baseDirectory);
-
         boost::filesystem::create_directories(GetSubDir(false));
         boost::filesystem::create_directories(GetSubDir(true));
     }
 
     void Storage::Impl::CreateDatabases()
     {
-        const boost::filesystem::path basePath(configuration.baseDirectory);
-
         dbRotating = std::unique_ptr<SQLite::Database>(new SQLite::Database((boost::filesystem::path(GetSubDir(false)) / "isto_rotating.sqlite").string(), SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE));
         dbPermanent = std::unique_ptr<SQLite::Database>(new SQLite::Database((boost::filesystem::path(GetSubDir(true)) / "isto_permanent.sqlite").string(), SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE));
 
@@ -342,7 +338,7 @@ namespace isto {
 
     bool Storage::Impl::DeleteExcessRotatingData(size_t sizeToBeInserted)
     {
-        auto hardDiskFreeBytes = boost::filesystem::space(boost::filesystem::path(configuration.baseDirectory)).free;
+        auto hardDiskFreeBytes = boost::filesystem::space(boost::filesystem::path(configuration.rotatingDirectory)).free;
 
         const auto hasExcessData = [&]() {
             return currentRotatingDataItemBytes + sizeToBeInserted > configuration.maxRotatingDataToKeepInGiB * 1024 * 1024 * 1024
