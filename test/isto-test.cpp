@@ -227,35 +227,53 @@ namespace {
         const auto nowMinus11us = now - std::chrono::microseconds(11);
         const auto nowMinus30us = now - std::chrono::microseconds(30);
 
-        EXPECT_EQ(storage->GetData(dataItem3.timestamp, ">").id, "4.bin");
-        EXPECT_EQ(storage->GetData(dataItem3.timestamp, "<").id, "2.bin");
-        EXPECT_EQ(storage->GetData(dataItem3.timestamp, ">=").id, "3.bin");
-        EXPECT_EQ(storage->GetData(dataItem3.timestamp, "<=").id, "3.bin");
+        for (int i = 0; i < 5; ++i) {
+            EXPECT_EQ(storage->GetData(dataItem3.timestamp, ">").id, "4.bin");
+            EXPECT_EQ(storage->GetData(dataItem3.timestamp, "<").id, "2.bin");
+            EXPECT_EQ(storage->GetData(dataItem3.timestamp, ">=").id, "3.bin");
+            EXPECT_EQ(storage->GetData(dataItem3.timestamp, "<=").id, "3.bin");
 
-        EXPECT_EQ(storage->GetData(nowMinus7us, ">=").id, "5.bin");
-        EXPECT_EQ(storage->GetData(nowMinus7us, ">").id, "5.bin");
-        EXPECT_EQ(storage->GetData(nowMinus7us, "<=").id, "4.bin");
-        EXPECT_EQ(storage->GetData(nowMinus7us, "<").id, "4.bin");
-        EXPECT_EQ(storage->GetData(nowMinus7us, "~").id, "5.bin");
-        EXPECT_FALSE(storage->GetData(nowMinus7us, "==").isValid);
+            EXPECT_EQ(storage->GetData(nowMinus7us, ">=").id, "5.bin");
+            EXPECT_EQ(storage->GetData(nowMinus7us, ">").id, "5.bin");
+            EXPECT_EQ(storage->GetData(nowMinus7us, "<=").id, "4.bin");
+            EXPECT_EQ(storage->GetData(nowMinus7us, "<").id, "4.bin");
+            EXPECT_EQ(storage->GetData(nowMinus7us, "~").id, "5.bin");
+            EXPECT_FALSE(storage->GetData(nowMinus7us, "==").isValid);
 
-        const auto tie = storage->GetData(nowMinus11us, "~");
-        EXPECT_TRUE(tie.id == "3.bin" || tie.id == "4.bin");
-        EXPECT_FALSE(storage->GetData(nowMinus11us, "==").isValid);
+            const auto tie = storage->GetData(nowMinus11us, "~");
+            EXPECT_TRUE(tie.id == "3.bin" || tie.id == "4.bin");
+            EXPECT_FALSE(storage->GetData(nowMinus11us, "==").isValid);
 
-        EXPECT_EQ(storage->GetData(nowMinus30us, ">=").id, "1.bin");
-        EXPECT_EQ(storage->GetData(nowMinus30us, ">").id, "1.bin");
-        EXPECT_EQ(storage->GetData(nowMinus30us, "~").id, "1.bin");
-        EXPECT_FALSE(storage->GetData(nowMinus30us, "<=").isValid);
-        EXPECT_FALSE(storage->GetData(nowMinus30us, "<").isValid);
-        EXPECT_FALSE(storage->GetData(nowMinus30us, "==").isValid);
+            EXPECT_EQ(storage->GetData(nowMinus30us, ">=").id, "1.bin");
+            EXPECT_EQ(storage->GetData(nowMinus30us, ">").id, "1.bin");
+            EXPECT_EQ(storage->GetData(nowMinus30us, "~").id, "1.bin");
+            EXPECT_FALSE(storage->GetData(nowMinus30us, "<=").isValid);
+            EXPECT_FALSE(storage->GetData(nowMinus30us, "<").isValid);
+            EXPECT_FALSE(storage->GetData(nowMinus30us, "==").isValid);
 
-        EXPECT_EQ(storage->GetData(now, "<=").id, "5.bin");
-        EXPECT_EQ(storage->GetData(now, "<").id, "5.bin");
-        EXPECT_EQ(storage->GetData(now, "~").id, "5.bin");
-        EXPECT_FALSE(storage->GetData(now, ">=").isValid);
-        EXPECT_FALSE(storage->GetData(now, ">").isValid);
-        EXPECT_FALSE(storage->GetData(now, "==").isValid);
+            EXPECT_EQ(storage->GetData(now, "<=").id, "5.bin");
+            EXPECT_EQ(storage->GetData(now, "<").id, "5.bin");
+            EXPECT_EQ(storage->GetData(now, "~").id, "5.bin");
+            EXPECT_FALSE(storage->GetData(now, ">=").isValid);
+            EXPECT_FALSE(storage->GetData(now, ">").isValid);
+            EXPECT_FALSE(storage->GetData(now, "==").isValid);
+
+            // move items around
+            if (i == 0) {
+                EXPECT_TRUE(storage->MakePermanent(dataItem3.id));
+            }
+            else if (i == 1) {
+                EXPECT_TRUE(storage->MakePermanent(dataItem1.id));
+                EXPECT_TRUE(storage->MakePermanent(dataItem4.id));
+            }
+            else if (i == 2) {
+                EXPECT_TRUE(storage->MakeRotating(dataItem1.id));
+            }
+            else if (i == 3) {
+                EXPECT_TRUE(storage->MakeRotating(dataItem3.id));
+                EXPECT_TRUE(storage->MakePermanent(dataItem5.id));
+            }
+        }
     }
 
 }  // namespace
