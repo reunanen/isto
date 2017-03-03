@@ -195,4 +195,64 @@ namespace {
         EXPECT_TRUE(storage->GetData(permanentDataItem.id).isValid);
     }
 
+    TEST_F(IstoTest, GetsLatestData) {
+        SaveSequentialData(10);
+
+        const isto::DataItem latestDataItem = storage->GetData();
+
+        EXPECT_TRUE(latestDataItem.isValid);
+        EXPECT_EQ(latestDataItem.id, "9.bin");
+    }
+
+    TEST_F(IstoTest, GetsPreviousAndNextData) {
+
+        const auto now = isto::now();
+
+        const isto::DataItem dataItem1("1.bin", sampleDataItem->data, now - std::chrono::microseconds(20));
+        const isto::DataItem dataItem2("2.bin", sampleDataItem->data, now - std::chrono::microseconds(15));
+        const isto::DataItem dataItem3("3.bin", sampleDataItem->data, now - std::chrono::microseconds(12));
+        const isto::DataItem dataItem4("4.bin", sampleDataItem->data, now - std::chrono::microseconds(10));
+        const isto::DataItem dataItem5("5.bin", sampleDataItem->data, now - std::chrono::microseconds(5));
+
+        storage->SaveData(dataItem1);
+        storage->SaveData(dataItem2);
+        storage->SaveData(dataItem3);
+        storage->SaveData(dataItem4);
+        storage->SaveData(dataItem5);
+
+        const auto nowMinus7us = now - std::chrono::microseconds(7);
+        const auto nowMinus11us = now - std::chrono::microseconds(11);
+        const auto nowMinus30us = now - std::chrono::microseconds(30);
+
+        EXPECT_EQ(storage->GetData(dataItem3.timestamp, ">").id, "4.bin");
+        EXPECT_EQ(storage->GetData(dataItem3.timestamp, "<").id, "2.bin");
+        EXPECT_EQ(storage->GetData(dataItem3.timestamp, ">=").id, "3.bin");
+        EXPECT_EQ(storage->GetData(dataItem3.timestamp, "<=").id, "3.bin");
+
+        EXPECT_EQ(storage->GetData(nowMinus7us, ">=").id, "5.bin");
+        EXPECT_EQ(storage->GetData(nowMinus7us, ">").id, "5.bin");
+        EXPECT_EQ(storage->GetData(nowMinus7us, "<=").id, "4.bin");
+        EXPECT_EQ(storage->GetData(nowMinus7us, "<").id, "4.bin");
+        EXPECT_EQ(storage->GetData(nowMinus7us, "~").id, "5.bin");
+        EXPECT_FALSE(storage->GetData(nowMinus7us, "==").isValid);
+
+        const auto tie = storage->GetData(nowMinus11us, "~");
+        EXPECT_TRUE(tie.id == "3.bin" || tie.id == "4.bin");
+        EXPECT_FALSE(storage->GetData(nowMinus11us, "==").isValid);
+
+        EXPECT_EQ(storage->GetData(nowMinus30us, ">=").id, "1.bin");
+        EXPECT_EQ(storage->GetData(nowMinus30us, ">").id, "1.bin");
+        EXPECT_EQ(storage->GetData(nowMinus30us, "~").id, "1.bin");
+        EXPECT_FALSE(storage->GetData(nowMinus30us, "<=").isValid);
+        EXPECT_FALSE(storage->GetData(nowMinus30us, "<").isValid);
+        EXPECT_FALSE(storage->GetData(nowMinus30us, "==").isValid);
+
+        EXPECT_EQ(storage->GetData(now, "<=").id, "5.bin");
+        EXPECT_EQ(storage->GetData(now, "<").id, "5.bin");
+        EXPECT_EQ(storage->GetData(now, "~").id, "5.bin");
+        EXPECT_FALSE(storage->GetData(now, ">=").isValid);
+        EXPECT_FALSE(storage->GetData(now, ">").isValid);
+        EXPECT_FALSE(storage->GetData(now, "==").isValid);
+    }
+
 }  // namespace

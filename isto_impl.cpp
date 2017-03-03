@@ -114,7 +114,107 @@ namespace isto {
 
     DataItem Storage::Impl::GetData(const std::chrono::high_resolution_clock::time_point& timestamp, const std::string& comparisonOperator)
     {
-        return DataItem::Invalid();
+        const auto matchedTimestampAndCorrespondingDatabase = FindMatchingTimestampAndCorrespondingDatabase(timestamp, comparisonOperator);
+
+        if (matchedTimestampAndCorrespondingDatabase.first.empty()) {
+            assert(matchedTimestampAndCorrespondingDatabase.second.get() == nullptr);
+            return DataItem::Invalid();
+        }
+
+        const std::string select = "select id from DataItems where timestamp = '" + matchedTimestampAndCorrespondingDatabase.first + "'";
+
+        SQLite::Statement query(*matchedTimestampAndCorrespondingDatabase.second, select);
+
+        if (query.executeStep()) {
+            const std::string id = query.getColumn(0);
+            return GetData(matchedTimestampAndCorrespondingDatabase.second, id);
+        }
+        else {
+            return DataItem::Invalid();
+        }
+    }
+
+    std::pair<std::string, std::unique_ptr<SQLite::Database>&> Storage::Impl::FindMatchingTimestampAndCorrespondingDatabase(const std::chrono::high_resolution_clock::time_point& timestamp, const std::string& comparisonOperator)
+    {
+        const std::string timestampString = system_clock_time_point_string_conversion::to_string(timestamp);
+
+        const auto noResult = [this]() {
+            return std::pair<std::string, std::unique_ptr<SQLite::Database>&>("", dbNone);
+        };
+
+        const auto getRotatingAndPermanentTimestamps = [&](const std::string& select) {
+            std::string rotatingTimestamp, permanentTimestamp;
+            SQLite::Statement queryRotating(*dbRotating, select);
+            SQLite::Statement queryPermanent(*dbPermanent, select);
+            if (queryRotating.executeStep()) {
+                rotatingTimestamp = queryRotating.getColumn(0);
+            }
+            if (queryPermanent.executeStep()) {
+                permanentTimestamp = queryPermanent.getColumn(0);
+            }
+            return std::pair<std::string, std::string>(rotatingTimestamp, permanentTimestamp);
+        };
+
+        if (comparisonOperator == "<" || comparisonOperator == "<=" || comparisonOperator == ">=" || comparisonOperator == ">") {
+            const std::string select = comparisonOperator == "<" || comparisonOperator == "<="
+                ? "select max(timestamp) from DataItems where timestamp " + comparisonOperator + "'" + timestampString + "'"
+                : "select min(timestamp) from DataItems where timestamp " + comparisonOperator + "'" + timestampString + "'";
+            const auto matchedTimestamps = getRotatingAndPermanentTimestamps(select);
+            if (!matchedTimestamps.first.empty() && !matchedTimestamps.second.empty()) {
+                const auto rotatingTimestamp = system_clock_time_point_string_conversion::from_string(matchedTimestamps.first);
+                const auto permanentTimestamp = system_clock_time_point_string_conversion::from_string(matchedTimestamps.second);
+                if (abs((rotatingTimestamp - timestamp).count()) < abs((permanentTimestamp - timestamp).count())) {
+                    return std::pair<std::string, std::unique_ptr<SQLite::Database>&>(matchedTimestamps.first, dbRotating);
+                }
+                else {
+                    return std::pair<std::string, std::unique_ptr<SQLite::Database>&>(matchedTimestamps.second, dbPermanent);
+                }
+            }
+            else if (!matchedTimestamps.first.empty()) {
+                return std::pair<std::string, std::unique_ptr<SQLite::Database>&>(matchedTimestamps.first, dbRotating);
+            }
+            else if (!matchedTimestamps.second.empty()) {
+                return std::pair<std::string, std::unique_ptr<SQLite::Database>&>(matchedTimestamps.second, dbPermanent);
+            }
+            else {
+                return noResult();
+            }
+        }
+        else if (comparisonOperator == "==") {
+            const auto bestPrevious = FindMatchingTimestampAndCorrespondingDatabase(timestamp, "<=");
+            if (bestPrevious.first == timestampString) {
+                return bestPrevious;
+            }
+            else {
+                return noResult();
+            }
+        }
+        else if (comparisonOperator == "~") {
+            const auto bestPrevious = FindMatchingTimestampAndCorrespondingDatabase(timestamp, "<=");
+            const auto bestNext = FindMatchingTimestampAndCorrespondingDatabase(timestamp, ">=");
+            if (!bestPrevious.first.empty() && !bestNext.first.empty()) {
+                const auto previousTimestamp = system_clock_time_point_string_conversion::from_string(bestPrevious.first);
+                const auto nextTimestamp = system_clock_time_point_string_conversion::from_string(bestNext.first);
+                if (abs((previousTimestamp - timestamp).count()) <= abs((nextTimestamp - timestamp).count())) {
+                    return bestPrevious;
+                }
+                else {
+                    return bestNext;
+                }
+            }
+            else if (!bestPrevious.first.empty()) {
+                return bestPrevious;
+            }
+            else if (!bestNext.first.empty()) {
+                return bestNext;
+            }
+            else {
+                return noResult();
+            }
+        }
+        else {
+            return noResult();
+        }
     }
 
     std::string Storage::Impl::GetDirectory(bool isPermanent, const timestamp_t& timestamp) const

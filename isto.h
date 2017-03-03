@@ -56,8 +56,8 @@ namespace isto {
         DataItem GetData(const std::string& id);
 
         // Get data by timestamp
-        // - supported comparison operators: "<", "<=", "==", ">=", ">"
-        DataItem GetData(const timestamp_t& timestamp = std::chrono::high_resolution_clock::now(), const std::string& comparisonOperator = "<=");
+        // - supported comparison operators: "<", "<=", "==", ">=", ">", "~" (nearest)
+        DataItem GetData(const timestamp_t& timestamp = std::chrono::high_resolution_clock::now(), const std::string& comparisonOperator = "~");
 
         // Keep a certain data item forever
         // - for example, if manually labeled in a supervised training setting
