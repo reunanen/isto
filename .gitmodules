@@ -1,5 +1,5 @@
 [submodule "Numcore_messaging_library"]
-	path = Numcore_messaging_library
+	path = samples/Numcore_messaging_library
 	url = https://github.com/reunanen/Numcore_messaging_library
 [submodule "SQLiteCpp"]
 	path = SQLiteCpp

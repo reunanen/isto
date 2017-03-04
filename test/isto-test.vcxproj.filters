@@ -4,27 +4,6 @@
     <Filter Include="gtest">
       <UniqueIdentifier>{38abe2e5-46b7-4957-bf43-011d45a2626b}</UniqueIdentifier>
     </Filter>
-    <Filter Include="isto">
-      <UniqueIdentifier>{33e2aaa8-96c4-4eda-9597-e1fbb00c2c15}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="sqlite">
-      <UniqueIdentifier>{9e4e1eea-9bcf-49a3-a494-48f7604fa96d}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="sqlite\SQLiteCpp">
-      <UniqueIdentifier>{20b059ec-591e-48bb-afc4-ae78b10fa81f}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="boost">
-      <UniqueIdentifier>{0ab2ea21-c464-422e-9215-c2971db8e159}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="boost\filesystem">
-      <UniqueIdentifier>{3e97351e-afc2-4bd3-82cc-dcc0a85118bf}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="system_clock_time_point_string_conversion">
-      <UniqueIdentifier>{9e15884f-7e0d-4d82-ae12-c911580c7cab}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="boost\system">
-      <UniqueIdentifier>{0d324bc3-4917-4605-b42d-7392dc26c710}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="googletest\googletest\src\gtest.cc">
@@ -51,74 +30,6 @@
     <ClCompile Include="googletest\googletest\src\gtest-typed-test.cc">
       <Filter>gtest</Filter>
     </ClCompile>
-    <ClCompile Include="..\isto.cpp">
-      <Filter>isto</Filter>
-    </ClCompile>
-    <ClCompile Include="..\isto_impl.cpp">
-      <Filter>isto</Filter>
-    </ClCompile>
-    <ClCompile Include="..\SQLiteCpp\src\Backup.cpp">
-      <Filter>sqlite\SQLiteCpp</Filter>
-    </ClCompile>
-    <ClCompile Include="..\SQLiteCpp\src\Column.cpp">
-      <Filter>sqlite\SQLiteCpp</Filter>
-    </ClCompile>
-    <ClCompile Include="..\SQLiteCpp\src\Database.cpp">
-      <Filter>sqlite\SQLiteCpp</Filter>
-    </ClCompile>
-    <ClCompile Include="..\SQLiteCpp\src\Exception.cpp">
-      <Filter>sqlite\SQLiteCpp</Filter>
-    </ClCompile>
-    <ClCompile Include="..\SQLiteCpp\src\Statement.cpp">
-      <Filter>sqlite\SQLiteCpp</Filter>
-    </ClCompile>
-    <ClCompile Include="..\SQLiteCpp\src\Transaction.cpp">
-      <Filter>sqlite\SQLiteCpp</Filter>
-    </ClCompile>
-    <ClCompile Include="..\SQLiteCpp\sqlite3\sqlite3.c">
-      <Filter>sqlite</Filter>
-    </ClCompile>
-    <ClCompile Include="..\system_clock_time_point_string_conversion\system_clock_time_point_string_conversion.cpp">
-      <Filter>system_clock_time_point_string_conversion</Filter>
-    </ClCompile>
     <ClCompile Include="isto-test.cpp" />
-    <ClCompile Include="..\boost\libs\filesystem\src\codecvt_error_category.cpp">
-      <Filter>boost\filesystem</Filter>
-    </ClCompile>
-    <ClCompile Include="..\boost\libs\filesystem\src\operations.cpp">
-      <Filter>boost\filesystem</Filter>
-    </ClCompile>
-    <ClCompile Include="..\boost\libs\filesystem\src\path.cpp">
-      <Filter>boost\filesystem</Filter>
-    </ClCompile>
-    <ClCompile Include="..\boost\libs\filesystem\src\path_traits.cpp">
-      <Filter>boost\filesystem</Filter>
-    </ClCompile>
-    <ClCompile Include="..\boost\libs\filesystem\src\portability.cpp">
-      <Filter>boost\filesystem</Filter>
-    </ClCompile>
-    <ClCompile Include="..\boost\libs\filesystem\src\unique_path.cpp">
-      <Filter>boost\filesystem</Filter>
-    </ClCompile>
-    <ClCompile Include="..\boost\libs\filesystem\src\utf8_codecvt_facet.cpp">
-      <Filter>boost\filesystem</Filter>
-    </ClCompile>
-    <ClCompile Include="..\boost\libs\filesystem\src\windows_file_codecvt.cpp">
-      <Filter>boost\filesystem</Filter>
-    </ClCompile>
-    <ClCompile Include="..\boost\libs\system\src\error_code.cpp">
-      <Filter>boost\system</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="..\isto.h">
-      <Filter>isto</Filter>
-    </ClInclude>
-    <ClInclude Include="..\isto_impl.h">
-      <Filter>isto</Filter>
-    </ClInclude>
-    <ClInclude Include="..\system_clock_time_point_string_conversion\system_clock_time_point_string_conversion.h">
-      <Filter>system_clock_time_point_string_conversion</Filter>
-    </ClInclude>
   </ItemGroup>
 </Project>

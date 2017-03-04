@@ -4,6 +4,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 12.0.31101.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "isto-test", "isto-test.vcxproj", "{B3DAD824-A7ED-4600-962D-B6BDE232A4E5}"
+	ProjectSection(ProjectDependencies) = postProject
+		{4375BAC5-0E9A-4B45-9792-903178269253} = {4375BAC5-0E9A-4B45-9792-903178269253}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "isto", "..\isto.vcxproj", "{4375BAC5-0E9A-4B45-9792-903178269253}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,6 +26,14 @@ Global
 		{B3DAD824-A7ED-4600-962D-B6BDE232A4E5}.Release|Win32.Build.0 = Release|Win32
 		{B3DAD824-A7ED-4600-962D-B6BDE232A4E5}.Release|x64.ActiveCfg = Release|x64
 		{B3DAD824-A7ED-4600-962D-B6BDE232A4E5}.Release|x64.Build.0 = Release|x64
+		{4375BAC5-0E9A-4B45-9792-903178269253}.Debug|Win32.ActiveCfg = Debug|Win32
+		{4375BAC5-0E9A-4B45-9792-903178269253}.Debug|Win32.Build.0 = Debug|Win32
+		{4375BAC5-0E9A-4B45-9792-903178269253}.Debug|x64.ActiveCfg = Debug|x64
+		{4375BAC5-0E9A-4B45-9792-903178269253}.Debug|x64.Build.0 = Debug|x64
+		{4375BAC5-0E9A-4B45-9792-903178269253}.Release|Win32.ActiveCfg = Release|Win32
+		{4375BAC5-0E9A-4B45-9792-903178269253}.Release|Win32.Build.0 = Release|Win32
+		{4375BAC5-0E9A-4B45-9792-903178269253}.Release|x64.ActiveCfg = Release|x64
+		{4375BAC5-0E9A-4B45-9792-903178269253}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
