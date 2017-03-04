@@ -7,21 +7,27 @@
 #include "isto.h"
 #include "isto_impl.h"
 
+#include "system_clock_time_point_string_conversion/system_clock_time_point_string_conversion.h"
+
 #include <assert.h>
 
 namespace isto {
     timestamp_t now() { return std::chrono::high_resolution_clock::now(); }
 
-    DataItem::DataItem(const std::string& id, const char* dataBegin, const char* dataEnd, const timestamp_t& timestamp, bool isPermanent,
-        const std::unordered_map<std::string, std::string>& tags)
+    timestamp_t RoundToUsedPrecision(const timestamp_t timestamp) {
+        const timestamp_t rounded = system_clock_time_point_string_conversion::from_string(system_clock_time_point_string_conversion::to_string(timestamp));
+        assert(abs(std::chrono::duration_cast<std::chrono::microseconds>(timestamp - rounded).count()) < 1);
+        return system_clock_time_point_string_conversion::from_string(system_clock_time_point_string_conversion::to_string(timestamp));
+    }
+
+    DataItem::DataItem(const std::string& id, const char* dataBegin, const char* dataEnd, const timestamp_t& timestamp, bool isPermanent, const tags_t& tags)
         : DataItem(id, std::vector<unsigned char>(dataBegin, dataEnd), timestamp, isPermanent, tags)
     {}
 
-    DataItem::DataItem(const std::string& id, const std::vector<unsigned char>& data, const timestamp_t& timestamp, bool isPermanent,
-        const std::unordered_map<std::string, std::string>& tags)
+    DataItem::DataItem(const std::string& id, const std::vector<unsigned char>& data, const timestamp_t& timestamp, bool isPermanent, const tags_t& tags)
         : id(id)
         , data(data)
-        , timestamp(timestamp)
+        , timestamp(RoundToUsedPrecision(timestamp))
         , isPermanent(isPermanent)
         , isValid(true)
         , tags(tags)
@@ -58,9 +64,9 @@ namespace isto {
         return impl->GetData(id);
     }
 
-    DataItem Storage::GetData(const std::chrono::high_resolution_clock::time_point& timestamp, const std::string& comparisonOperator, const std::unordered_map<std::string, std::string>& tags)
+    DataItem Storage::GetData(const std::chrono::high_resolution_clock::time_point& timestamp, const std::string& comparisonOperator, const tags_t& tags)
     {
-        return impl->GetData(timestamp, comparisonOperator);
+        return impl->GetData(timestamp, comparisonOperator, tags);
     }
 
     bool Storage::MakePermanent(const std::string& id)

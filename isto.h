@@ -14,15 +14,13 @@
 namespace isto {
     
     typedef std::chrono::system_clock::time_point timestamp_t;
+    typedef std::unordered_map<std::string, std::string> tags_t;
 
     timestamp_t now();
 
     struct DataItem {
-        DataItem(const std::string& id, const char* dataBegin, const char* dataEnd, const timestamp_t& timestamp = now(), bool isPermanent = false,
-            const std::unordered_map<std::string, std::string>& tags = std::unordered_map<std::string, std::string>());
-
-        DataItem(const std::string& id, const std::vector<unsigned char>& data, const timestamp_t& timestamp = now(), bool isPermanent = false,
-            const std::unordered_map<std::string, std::string>& tags = std::unordered_map<std::string, std::string>());
+        DataItem(const std::string& id, const char* dataBegin, const char* dataEnd, const timestamp_t& timestamp = now(), bool isPermanent = false, const tags_t& tags = tags_t());
+        DataItem(const std::string& id, const std::vector<unsigned char>& data, const timestamp_t& timestamp = now(), bool isPermanent = false, const tags_t& tags = tags_t());
 
         static DataItem Invalid();
 
@@ -32,7 +30,7 @@ namespace isto {
         const bool isPermanent;
         const bool isValid;
 
-        const std::unordered_map<std::string, std::string> tags;
+        const tags_t tags;
 
     private:
         DataItem();
@@ -65,8 +63,7 @@ namespace isto {
 
         // Get data by timestamp
         // - supported comparison operators: "<", "<=", "==", ">=", ">", "~" (nearest)
-        DataItem GetData(const timestamp_t& timestamp = std::chrono::high_resolution_clock::now(), const std::string& comparisonOperator = "~",
-            const std::unordered_map<std::string, std::string>& tags = std::unordered_map<std::string, std::string>());
+        DataItem GetData(const timestamp_t& timestamp = std::chrono::high_resolution_clock::now(), const std::string& comparisonOperator = "~", const tags_t& tags = tags_t());
 
         // Keep a certain data item forever
         // - for example, if manually labeled in a supervised training setting

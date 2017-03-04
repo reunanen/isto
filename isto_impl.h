@@ -20,8 +20,7 @@ namespace isto {
         DataItem GetPermanentData(const std::string& id);
         DataItem GetRotatingData(const std::string& id);
         
-        DataItem GetData(const timestamp_t& timestamp = std::chrono::high_resolution_clock::now(), const std::string& comparisonOperator = "<=",
-            const std::unordered_map<std::string, std::string>& tags = std::unordered_map<std::string, std::string>());
+        DataItem GetData(const timestamp_t& timestamp, const std::string& comparisonOperator, const tags_t& tags);
 
         bool MakePermanent(const std::string& id);
         bool MakeRotating(const std::string& id);
@@ -48,7 +47,10 @@ namespace isto {
 
         void Flush(std::unique_ptr<SQLite::Database>& db);
 
-        std::pair<std::string, std::unique_ptr<SQLite::Database>&> FindMatchingTimestampAndCorrespondingDatabase(const std::chrono::high_resolution_clock::time_point& timestamp, const std::string& comparisonOperator);
+        std::pair<std::string, std::unique_ptr<SQLite::Database>&> FindMatchingTimestampAndCorrespondingDatabase(
+            const std::chrono::high_resolution_clock::time_point& timestamp,
+            const std::string& comparisonOperator,
+            const tags_t& tags);
 
         Configuration configuration;
         std::unique_ptr<SQLite::Database> dbRotating;

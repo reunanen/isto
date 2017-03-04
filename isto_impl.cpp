@@ -113,7 +113,7 @@ namespace isto {
             const std::string path = query.getColumn(index++);
             const size_t size = query.getColumn(index++);
 
-            std::unordered_map<std::string, std::string> tags;
+            tags_t tags;
             for (const std::string& tag : configuration.tags) {
                 tags[tag] = query.getColumn(index++);
             }
@@ -136,17 +136,20 @@ namespace isto {
         }
     }
 
-    DataItem Storage::Impl::GetData(const std::chrono::high_resolution_clock::time_point& timestamp, const std::string& comparisonOperator,
-        const std::unordered_map<std::string, std::string>& tags)
+    DataItem Storage::Impl::GetData(const timestamp_t& timestamp, const std::string& comparisonOperator, const tags_t& tags)
     {
-        const auto matchedTimestampAndCorrespondingDatabase = FindMatchingTimestampAndCorrespondingDatabase(timestamp, comparisonOperator);
+        const auto matchedTimestampAndCorrespondingDatabase = FindMatchingTimestampAndCorrespondingDatabase(timestamp, comparisonOperator, tags);
 
         if (matchedTimestampAndCorrespondingDatabase.first.empty()) {
             assert(matchedTimestampAndCorrespondingDatabase.second.get() == nullptr);
             return DataItem::Invalid();
         }
 
-        const std::string select = "select id from DataItems where timestamp = '" + matchedTimestampAndCorrespondingDatabase.first + "'";
+        std::string select = "select id from DataItems where timestamp = '" + matchedTimestampAndCorrespondingDatabase.first + "'";
+
+        for (const auto& tag : tags) {
+            select += " and " + tag.first + " = '" + tag.second + "'";
+        }
 
         SQLite::Statement query(*matchedTimestampAndCorrespondingDatabase.second, select);
 
@@ -159,7 +162,10 @@ namespace isto {
         }
     }
 
-    std::pair<std::string, std::unique_ptr<SQLite::Database>&> Storage::Impl::FindMatchingTimestampAndCorrespondingDatabase(const std::chrono::high_resolution_clock::time_point& timestamp, const std::string& comparisonOperator)
+    std::pair<std::string, std::unique_ptr<SQLite::Database>&> Storage::Impl::FindMatchingTimestampAndCorrespondingDatabase(
+        const std::chrono::high_resolution_clock::time_point& timestamp,
+        const std::string& comparisonOperator,
+        const tags_t& tags)
     {
         const std::string timestampString = system_clock_time_point_string_conversion::to_string(timestamp);
 
@@ -181,9 +187,19 @@ namespace isto {
         };
 
         if (comparisonOperator == "<" || comparisonOperator == "<=" || comparisonOperator == ">=" || comparisonOperator == ">") {
-            const std::string select = comparisonOperator == "<" || comparisonOperator == "<="
-                ? "select max(timestamp) from DataItems where timestamp " + comparisonOperator + "'" + timestampString + "'"
-                : "select min(timestamp) from DataItems where timestamp " + comparisonOperator + "'" + timestampString + "'";
+            std::string select = "select ";
+            if (comparisonOperator == "<" || comparisonOperator == "<=") {
+                select += "max(timestamp)";
+            }
+            else {
+                select += "min(timestamp)";
+            }
+            select += " from DataItems where timestamp " + comparisonOperator + "'" + timestampString + "'";
+
+            for (const auto& tag : tags) {
+                select += " and " + tag.first + " = '" + tag.second + "'";
+            }
+
             const auto matchedTimestamps = getRotatingAndPermanentTimestamps(select);
             if (!matchedTimestamps.first.empty() && !matchedTimestamps.second.empty()) {
                 const auto rotatingTimestamp = system_clock_time_point_string_conversion::from_string(matchedTimestamps.first);
@@ -206,7 +222,7 @@ namespace isto {
             }
         }
         else if (comparisonOperator == "==") {
-            const auto bestPrevious = FindMatchingTimestampAndCorrespondingDatabase(timestamp, "<=");
+            const auto bestPrevious = FindMatchingTimestampAndCorrespondingDatabase(timestamp, "<=", tags);
             if (bestPrevious.first == timestampString) {
                 return bestPrevious;
             }
@@ -215,8 +231,8 @@ namespace isto {
             }
         }
         else if (comparisonOperator == "~") {
-            const auto bestPrevious = FindMatchingTimestampAndCorrespondingDatabase(timestamp, "<=");
-            const auto bestNext = FindMatchingTimestampAndCorrespondingDatabase(timestamp, ">=");
+            const auto bestPrevious = FindMatchingTimestampAndCorrespondingDatabase(timestamp, "<=", tags);
+            const auto bestNext = FindMatchingTimestampAndCorrespondingDatabase(timestamp, ">=", tags);
             if (!bestPrevious.first.empty() && !bestNext.first.empty()) {
                 const auto previousTimestamp = system_clock_time_point_string_conversion::from_string(bestPrevious.first);
                 const auto nextTimestamp = system_clock_time_point_string_conversion::from_string(bestNext.first);
@@ -278,7 +294,7 @@ namespace isto {
         }
         else {
             assert(dataItem.isPermanent != destinationIsPermanent);
-            const DataItem newDataItem(dataItem.id, dataItem.data, dataItem.timestamp, destinationIsPermanent);
+            const DataItem newDataItem(dataItem.id, dataItem.data, dataItem.timestamp, destinationIsPermanent, dataItem.tags);
             if (SaveData(newDataItem)) {
                 DeleteItem(sourceIsPermanent, dataItem.timestamp, dataItem.id);
                 Flush(GetDatabase(sourceIsPermanent));

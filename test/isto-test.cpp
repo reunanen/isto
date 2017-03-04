@@ -95,9 +95,7 @@ namespace {
         EXPECT_EQ(retrievedDataItem.data, sampleDataItem->data);
         EXPECT_EQ(retrievedDataItem.isPermanent, sampleDataItem->isPermanent);
         EXPECT_EQ(retrievedDataItem.isValid, sampleDataItem->isValid);
-
-        // The timestamp may have been rounded.
-        EXPECT_LT(std::chrono::duration_cast<std::chrono::microseconds>(retrievedDataItem.timestamp - sampleDataItem->timestamp).count(), 1);
+        EXPECT_EQ(retrievedDataItem.timestamp, sampleDataItem->timestamp);
     }
 
     TEST_F(IstoTest, SavesAndReadsTags) {
@@ -106,7 +104,7 @@ namespace {
 
         RecreateStorageWithUpdatedConfiguration();
 
-        std::unordered_map<std::string, std::string> tags;
+        isto::tags_t tags;
         tags["test"] = "foo";
         tags["test2"] = "bar";
 
@@ -274,6 +272,144 @@ namespace {
             EXPECT_FALSE(storage->GetData(now, ">=").isValid);
             EXPECT_FALSE(storage->GetData(now, ">").isValid);
             EXPECT_FALSE(storage->GetData(now, "==").isValid);
+
+            // move items around
+            if (i == 0) {
+                EXPECT_TRUE(storage->MakePermanent(dataItem3.id));
+            }
+            else if (i == 1) {
+                EXPECT_TRUE(storage->MakePermanent(dataItem1.id));
+                EXPECT_TRUE(storage->MakePermanent(dataItem4.id));
+            }
+            else if (i == 2) {
+                EXPECT_TRUE(storage->MakeRotating(dataItem1.id));
+            }
+            else if (i == 3) {
+                EXPECT_TRUE(storage->MakeRotating(dataItem3.id));
+                EXPECT_TRUE(storage->MakePermanent(dataItem5.id));
+            }
+        }
+    }
+
+    TEST_F(IstoTest, GetsLatestDataByTags) {
+        configuration.tags.push_back("test");
+        configuration.tags.push_back("test2");
+
+        RecreateStorageWithUpdatedConfiguration();
+
+        isto::tags_t tags1, tags2;
+        tags1["test"] = "foo";
+        tags2["test"] = "bar";
+        tags1["test2"] = "foo2";
+        tags2["test2"] = "bar2";
+
+        const auto now = isto::now();
+
+        const isto::DataItem dataItem1("1.bin", sampleDataItem->data, now - std::chrono::microseconds(20), false, tags1);
+        const isto::DataItem dataItem2("2.bin", sampleDataItem->data, now - std::chrono::microseconds(15), false, tags2);
+        const isto::DataItem dataItem3("3.bin", sampleDataItem->data, now - std::chrono::microseconds(12), false, tags1);
+        const isto::DataItem dataItem4("4.bin", sampleDataItem->data, now - std::chrono::microseconds(10), false, tags2);
+        const isto::DataItem dataItem5("5.bin", sampleDataItem->data, now - std::chrono::microseconds(5), false, tags1);
+
+        storage->SaveData(dataItem1);
+        storage->SaveData(dataItem2);
+        storage->SaveData(dataItem3);
+        storage->SaveData(dataItem4);
+        storage->SaveData(dataItem5);
+
+        const isto::DataItem latestDataItem = storage->GetData(now, "~", tags2);
+
+        EXPECT_TRUE(latestDataItem.isValid);
+        EXPECT_EQ(latestDataItem.id, "4.bin");
+        EXPECT_EQ(latestDataItem.timestamp, dataItem4.timestamp);
+        EXPECT_EQ(latestDataItem.tags, tags2);
+    }
+
+    TEST_F(IstoTest, GetsPreviousAndNextDataByTags) {
+
+        configuration.tags.push_back("test");
+        configuration.tags.push_back("test2");
+
+        RecreateStorageWithUpdatedConfiguration();
+
+        isto::tags_t allTags1, allTags2, partialTags1, partialTags2;
+        allTags1["test"] = "foo";
+        allTags2["test"] = "bar";
+        allTags1["test2"] = "foo2";
+        allTags2["test2"] = "bar2";
+        partialTags1["test"] = "foo";
+        partialTags2["test2"] = "bar2";
+
+        const auto now = isto::now();
+
+        const isto::DataItem dataItem1("1.bin", sampleDataItem->data, now - std::chrono::microseconds(20), false, allTags1);
+        const isto::DataItem dataItem2("2.bin", sampleDataItem->data, now - std::chrono::microseconds(15), false, allTags2);
+        const isto::DataItem dataItem3("3.bin", sampleDataItem->data, now - std::chrono::microseconds(12), false, allTags1);
+        const isto::DataItem dataItem4("4.bin", sampleDataItem->data, now - std::chrono::microseconds(10), false, allTags2);
+        const isto::DataItem dataItem5("5.bin", sampleDataItem->data, now - std::chrono::microseconds(5), false, allTags1);
+
+        storage->SaveData(dataItem1);
+        storage->SaveData(dataItem2);
+        storage->SaveData(dataItem3);
+        storage->SaveData(dataItem4);
+        storage->SaveData(dataItem5);
+
+        const auto nowMinus30us = now - std::chrono::microseconds(30);
+
+        for (int i = 0; i < 5; ++i) {
+            for (int j = 0; j < 2; ++j) {
+                const bool usePartialTags = j > 0;
+                const auto tags1 = usePartialTags ? partialTags1 : allTags1;
+                const auto tags2 = usePartialTags ? partialTags2 : allTags2;
+
+                EXPECT_EQ(storage->GetData(dataItem3.timestamp, ">", tags1).id, "5.bin");
+                EXPECT_EQ(storage->GetData(dataItem3.timestamp, "<", tags1).id, "1.bin");
+                EXPECT_EQ(storage->GetData(dataItem3.timestamp, ">=", tags1).id, "3.bin");
+                EXPECT_EQ(storage->GetData(dataItem3.timestamp, "<=", tags1).id, "3.bin");
+
+                EXPECT_EQ(storage->GetData(dataItem3.timestamp, ">", tags2).id, "4.bin");
+                EXPECT_EQ(storage->GetData(dataItem3.timestamp, "<", tags2).id, "2.bin");
+                EXPECT_EQ(storage->GetData(dataItem3.timestamp, ">=", tags2).id, "4.bin");
+                EXPECT_EQ(storage->GetData(dataItem3.timestamp, "<=", tags2).id, "2.bin");
+
+                EXPECT_EQ(storage->GetData(dataItem3.timestamp, ">", tags1).id, "5.bin");
+                EXPECT_EQ(storage->GetData(dataItem3.timestamp, "<", tags1).id, "1.bin");
+                EXPECT_EQ(storage->GetData(dataItem3.timestamp, ">=", tags1).id, "3.bin");
+                EXPECT_EQ(storage->GetData(dataItem3.timestamp, "<=", tags1).id, "3.bin");
+
+                EXPECT_EQ(storage->GetData(dataItem3.timestamp, ">", tags2).id, "4.bin");
+                EXPECT_EQ(storage->GetData(dataItem3.timestamp, "<", tags2).id, "2.bin");
+                EXPECT_EQ(storage->GetData(dataItem3.timestamp, ">=", tags2).id, "4.bin");
+                EXPECT_EQ(storage->GetData(dataItem3.timestamp, "<=", tags2).id, "2.bin");
+
+                EXPECT_EQ(storage->GetData(nowMinus30us, ">=", tags1).id, "1.bin");
+                EXPECT_EQ(storage->GetData(nowMinus30us, ">", tags1).id, "1.bin");
+                EXPECT_EQ(storage->GetData(nowMinus30us, "~", tags1).id, "1.bin");
+                EXPECT_FALSE(storage->GetData(nowMinus30us, "<=", tags1).isValid);
+                EXPECT_FALSE(storage->GetData(nowMinus30us, "<", tags1).isValid);
+                EXPECT_FALSE(storage->GetData(nowMinus30us, "==", tags1).isValid);
+
+                EXPECT_EQ(storage->GetData(nowMinus30us, ">=", tags2).id, "2.bin");
+                EXPECT_EQ(storage->GetData(nowMinus30us, ">", tags2).id, "2.bin");
+                EXPECT_EQ(storage->GetData(nowMinus30us, "~", tags2).id, "2.bin");
+                EXPECT_FALSE(storage->GetData(nowMinus30us, "<=", tags2).isValid);
+                EXPECT_FALSE(storage->GetData(nowMinus30us, "<", tags2).isValid);
+                EXPECT_FALSE(storage->GetData(nowMinus30us, "==", tags2).isValid);
+
+                EXPECT_EQ(storage->GetData(now, "<=", tags1).id, "5.bin");
+                EXPECT_EQ(storage->GetData(now, "<", tags1).id, "5.bin");
+                EXPECT_EQ(storage->GetData(now, "~", tags1).id, "5.bin");
+                EXPECT_FALSE(storage->GetData(now, ">=", tags1).isValid);
+                EXPECT_FALSE(storage->GetData(now, ">", tags1).isValid);
+                EXPECT_FALSE(storage->GetData(now, "==", tags1).isValid);
+
+                EXPECT_EQ(storage->GetData(now, "<=", tags2).id, "4.bin");
+                EXPECT_EQ(storage->GetData(now, "<", tags2).id, "4.bin");
+                EXPECT_EQ(storage->GetData(now, "~", tags2).id, "4.bin");
+                EXPECT_FALSE(storage->GetData(now, ">=", tags2).isValid);
+                EXPECT_FALSE(storage->GetData(now, ">", tags2).isValid);
+                EXPECT_FALSE(storage->GetData(now, "==", tags2).isValid);
+            }
 
             // move items around
             if (i == 0) {
