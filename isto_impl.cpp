@@ -18,6 +18,7 @@ namespace isto {
         CreateDirectoriesThatDoNotExist();
         CreateDatabases();
         CreateTablesThatDoNotExist();
+        CreateIndexesThatDoNotExist();
         CreateStatements();
         InitializeCurrentDataItemBytes();
     }
@@ -348,6 +349,14 @@ namespace isto {
 
         dbRotating->exec("begin exclusive");
         dbPermanent->exec("begin exclusive");
+    }
+
+    void Storage::Impl::CreateIndexesThatDoNotExist()
+    {
+        const std::string createIndexOnTimestamp = "create index if not exists timestamp_index on DataItems(timestamp)";
+
+        dbRotating->exec(createIndexOnTimestamp);
+        dbPermanent->exec(createIndexOnTimestamp);
     }
 
     void Storage::Impl::CreateTablesThatDoNotExist()

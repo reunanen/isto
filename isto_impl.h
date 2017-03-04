@@ -33,9 +33,10 @@ namespace isto {
         std::string GetDirectory(bool isPermanent, const timestamp_t& timestamp) const;
         std::string GetPath(bool isPermanent, const timestamp_t& timestamp, const std::string& id) const;
 
-        void CreateTablesThatDoNotExist();
         void CreateDirectoriesThatDoNotExist();
         void CreateDatabases();
+        void CreateTablesThatDoNotExist();
+        void CreateIndexesThatDoNotExist();
         void CreateStatements();
         void InitializeCurrentDataItemBytes();
 
