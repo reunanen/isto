@@ -64,6 +64,12 @@ namespace {
             }
         }
 
+        void RecreateStorageWithUpdatedConfiguration()
+        {
+            storage.reset();
+            storage = std::unique_ptr<isto::Storage>(new isto::Storage(configuration));
+        }
+
         isto::Configuration configuration;
         std::unique_ptr<isto::Storage> storage;
         const char* sampleDataId = "asdf.bin";
@@ -94,6 +100,29 @@ namespace {
         EXPECT_LT(std::chrono::duration_cast<std::chrono::microseconds>(retrievedDataItem.timestamp - sampleDataItem->timestamp).count(), 1);
     }
 
+    TEST_F(IstoTest, SavesAndReadsTags) {
+        configuration.tags.push_back("test");
+        configuration.tags.push_back("test2");
+
+        RecreateStorageWithUpdatedConfiguration();
+
+        std::unordered_map<std::string, std::string> tags;
+        tags["test"] = "foo";
+        tags["test2"] = "bar";
+
+        const isto::DataItem taggedItem(sampleDataItem->id, sampleDataItem->data, sampleDataItem->timestamp, false, tags);
+        storage->SaveData(taggedItem);
+
+        const isto::DataItem readItem = storage->GetData(sampleDataItem->id);
+
+        EXPECT_EQ(readItem.tags, taggedItem.tags);
+    };
+
+    TEST_F(IstoTest, DoesNotAllowSpacesInTagNames) {
+        configuration.tags.push_back("test tag");
+        EXPECT_THROW(RecreateStorageWithUpdatedConfiguration(), std::exception);
+    }
+
     TEST_F(IstoTest, DoesNotInsertDuplicateData) {
         EXPECT_NO_THROW(storage->SaveData(*sampleDataItem));
         EXPECT_THROW(storage->SaveData(*sampleDataItem), std::exception);
@@ -119,10 +148,7 @@ namespace {
     TEST_F(IstoTest, RemovesExcessData) {
         // Set up new, tight limits
         configuration.maxRotatingDataToKeepInGiB = 8.0 / 1024 / 1024; // 8 kiB
-
-        // Take the updated configuration in use
-        storage.reset();
-        storage = std::unique_ptr<isto::Storage>(new isto::Storage(configuration));
+        RecreateStorageWithUpdatedConfiguration();
 
         SaveSequentialData(10);
 
@@ -145,10 +171,7 @@ namespace {
         // Set up new, tight limits
         configuration.maxRotatingDataToKeepInGiB = 1.0;
         configuration.minFreeDiskSpaceInGiB = (afterSaving1.free - 2 * 4096) / 1024.0 / 1024.0 / 1024.0;
-
-        // Take the updated configuration in use
-        storage.reset();
-        storage = std::unique_ptr<isto::Storage>(new isto::Storage(configuration));
+        RecreateStorageWithUpdatedConfiguration();
 
         SaveSequentialData(20);
 
@@ -169,10 +192,7 @@ namespace {
 
         configuration.maxRotatingDataToKeepInGiB = 1.0;
         configuration.minFreeDiskSpaceInGiB = space.free / 1024.0 / 1024.0 / 1024.0;
-
-        // Take the updated configuration in use
-        storage.reset();
-        storage = std::unique_ptr<isto::Storage>(new isto::Storage(configuration));
+        RecreateStorageWithUpdatedConfiguration();
 
         storage->SaveData(*sampleDataItem);
 
@@ -184,10 +204,7 @@ namespace {
 
         configuration.maxRotatingDataToKeepInGiB = 1.0;
         configuration.minFreeDiskSpaceInGiB = space.free / 1024.0 / 1024.0 / 1024.0;
-
-        // Take the updated configuration in use
-        storage.reset();
-        storage = std::unique_ptr<isto::Storage>(new isto::Storage(configuration));
+        RecreateStorageWithUpdatedConfiguration();
 
         std::vector<unsigned char> data(4096);
 

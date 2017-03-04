@@ -9,6 +9,7 @@
 
 #include <chrono>
 #include <vector>
+#include <unordered_map>
 
 namespace isto {
     
@@ -17,8 +18,11 @@ namespace isto {
     timestamp_t now();
 
     struct DataItem {
-        DataItem(const std::string& id, const char* dataBegin, const char* dataEnd, const timestamp_t& timestamp = now(), bool isPermanent = false);
-        DataItem(const std::string& id, const std::vector<unsigned char>& data, const timestamp_t& timestamp = now(), bool isPermanent = false);
+        DataItem(const std::string& id, const char* dataBegin, const char* dataEnd, const timestamp_t& timestamp = now(), bool isPermanent = false,
+            const std::unordered_map<std::string, std::string>& tags = std::unordered_map<std::string, std::string>());
+
+        DataItem(const std::string& id, const std::vector<unsigned char>& data, const timestamp_t& timestamp = now(), bool isPermanent = false,
+            const std::unordered_map<std::string, std::string>& tags = std::unordered_map<std::string, std::string>());
 
         static DataItem Invalid();
 
@@ -27,6 +31,8 @@ namespace isto {
         const timestamp_t timestamp;
         const bool isPermanent;
         const bool isValid;
+
+        const std::unordered_map<std::string, std::string> tags;
 
     private:
         DataItem();
@@ -43,6 +49,8 @@ namespace isto {
 
         double maxRotatingDataToKeepInGiB = 100.0;
         double minFreeDiskSpaceInGiB = 0.5;
+
+        std::vector<std::string> tags; // tags are string values like "camera": "1" or "detected_size": "too large"
     };
 
     class Storage {
@@ -57,7 +65,8 @@ namespace isto {
 
         // Get data by timestamp
         // - supported comparison operators: "<", "<=", "==", ">=", ">", "~" (nearest)
-        DataItem GetData(const timestamp_t& timestamp = std::chrono::high_resolution_clock::now(), const std::string& comparisonOperator = "~");
+        DataItem GetData(const timestamp_t& timestamp = std::chrono::high_resolution_clock::now(), const std::string& comparisonOperator = "~",
+            const std::unordered_map<std::string, std::string>& tags = std::unordered_map<std::string, std::string>());
 
         // Keep a certain data item forever
         // - for example, if manually labeled in a supervised training setting

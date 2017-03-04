@@ -19,7 +19,10 @@ namespace isto {
         DataItem GetData(const std::string& id);
         DataItem GetPermanentData(const std::string& id);
         DataItem GetRotatingData(const std::string& id);
-        DataItem GetData(const timestamp_t& timestamp = std::chrono::high_resolution_clock::now(), const std::string& comparisonOperator = "<=");
+        
+        DataItem GetData(const timestamp_t& timestamp = std::chrono::high_resolution_clock::now(), const std::string& comparisonOperator = "<=",
+            const std::unordered_map<std::string, std::string>& tags = std::unordered_map<std::string, std::string>());
+
         bool MakePermanent(const std::string& id);
         bool MakeRotating(const std::string& id);
 

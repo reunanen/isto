@@ -12,16 +12,19 @@
 namespace isto {
     timestamp_t now() { return std::chrono::high_resolution_clock::now(); }
 
-    DataItem::DataItem(const std::string& id, const char* dataBegin, const char* dataEnd, const timestamp_t& timestamp, bool isPermanent)
-        : DataItem(id, std::vector<unsigned char>(dataBegin, dataEnd), timestamp)
+    DataItem::DataItem(const std::string& id, const char* dataBegin, const char* dataEnd, const timestamp_t& timestamp, bool isPermanent,
+        const std::unordered_map<std::string, std::string>& tags)
+        : DataItem(id, std::vector<unsigned char>(dataBegin, dataEnd), timestamp, isPermanent, tags)
     {}
 
-    DataItem::DataItem(const std::string& id, const std::vector<unsigned char>& data, const timestamp_t& timestamp, bool isPermanent)
+    DataItem::DataItem(const std::string& id, const std::vector<unsigned char>& data, const timestamp_t& timestamp, bool isPermanent,
+        const std::unordered_map<std::string, std::string>& tags)
         : id(id)
         , data(data)
         , timestamp(timestamp)
         , isPermanent(isPermanent)
         , isValid(true)
+        , tags(tags)
     {}
 
     DataItem DataItem::Invalid()
@@ -55,7 +58,7 @@ namespace isto {
         return impl->GetData(id);
     }
 
-    DataItem Storage::GetData(const std::chrono::high_resolution_clock::time_point& timestamp, const std::string& comparisonOperator)
+    DataItem Storage::GetData(const std::chrono::high_resolution_clock::time_point& timestamp, const std::string& comparisonOperator, const std::unordered_map<std::string, std::string>& tags)
     {
         return impl->GetData(timestamp, comparisonOperator);
     }

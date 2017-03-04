@@ -45,10 +45,21 @@ namespace isto {
             out.write(reinterpret_cast<const char*>(dataItem.data.data()), dataItem.data.size());
         }
 
-        insert->bind(1, dataItem.id);
-        insert->bind(2, timestamp);
-        insert->bind(3, path);
-        insert->bind(4, dataItem.data.size());
+        int index = 0;
+        insert->bind(++index, dataItem.id);
+        insert->bind(++index, timestamp);
+        insert->bind(++index, path);
+        insert->bind(++index, dataItem.data.size());
+
+        auto tags = dataItem.tags;
+
+        for (const std::string& tag : configuration.tags) {
+            tags[tag]; // initialize possibly missing tags
+        }
+
+        for (const std::string& tag : configuration.tags) {
+            insert->bind(++index, tags[tag]);
+        }
 
         insert->executeStep();
         insert->clearBindings();
@@ -85,14 +96,27 @@ namespace isto {
 
     DataItem Storage::Impl::GetData(std::unique_ptr<SQLite::Database>& db, const std::string& id)
     {
-        const std::string select = "select timestamp, path, size from DataItems where id = '" + id + "'";
+        std::ostringstream select;
+        select << "select timestamp, path, size";
+            
+        for (const std::string& tag : configuration.tags) {
+            select << ", " << tag;
+        }
 
-        SQLite::Statement query(*db, select);
+        select << " from DataItems where id = '" + id + "'";
+
+        SQLite::Statement query(*db, select.str());
 
         if (query.executeStep()) {
-            const std::string timestampString = query.getColumn(0);
-            const std::string path = query.getColumn(1);
-            const size_t size = query.getColumn(2);
+            int index = 0;
+            const std::string timestampString = query.getColumn(index++);
+            const std::string path = query.getColumn(index++);
+            const size_t size = query.getColumn(index++);
+
+            std::unordered_map<std::string, std::string> tags;
+            for (const std::string& tag : configuration.tags) {
+                tags[tag] = query.getColumn(index++);
+            }
 
             std::vector<unsigned char> data(size);
 
@@ -105,14 +129,15 @@ namespace isto {
 
             const auto timestamp = system_clock_time_point_string_conversion::from_string(timestampString);
 
-            return DataItem(id, data, timestamp, db == dbPermanent);
+            return DataItem(id, data, timestamp, db == dbPermanent, tags);
         }
         else {
             return DataItem::Invalid();
         }
     }
 
-    DataItem Storage::Impl::GetData(const std::chrono::high_resolution_clock::time_point& timestamp, const std::string& comparisonOperator)
+    DataItem Storage::Impl::GetData(const std::chrono::high_resolution_clock::time_point& timestamp, const std::string& comparisonOperator,
+        const std::unordered_map<std::string, std::string>& tags)
     {
         const auto matchedTimestampAndCorrespondingDatabase = FindMatchingTimestampAndCorrespondingDatabase(timestamp, comparisonOperator);
 
@@ -311,16 +336,35 @@ namespace isto {
 
     void Storage::Impl::CreateTablesThatDoNotExist()
     {
-        std::string createTableStatement = "create table if not exists DataItems (id text primary key, timestamp text, path text, size integer)";
+        std::ostringstream createTableStatement;
+        createTableStatement << "create table if not exists DataItems (id text primary key, timestamp text, path text, size integer";
 
-        dbRotating->exec(createTableStatement);
-        dbPermanent->exec(createTableStatement);
+        for (const std::string& tag : configuration.tags) {
+            if (tag.find_first_of(" \t\n") != std::string::npos) {
+                throw std::runtime_error("Tag names must not contain whitespace");
+            }
+            createTableStatement << ", " << tag << " text";
+        }
+
+        createTableStatement << ")";
+
+        dbRotating->exec(createTableStatement.str());
+        dbPermanent->exec(createTableStatement.str());
     }
 
     void Storage::Impl::CreateStatements()
     {
-        insertRotating = std::unique_ptr<SQLite::Statement>(new SQLite::Statement(*dbRotating, "insert into DataItems values (@id, @timestamp, @path, @size)"));
-        insertPermanent = std::unique_ptr<SQLite::Statement>(new SQLite::Statement(*dbPermanent, "insert into DataItems values (@id, @timestamp, @path, @size)"));
+        std::ostringstream insertStatement;
+        insertStatement << "insert into DataItems values (@id, @timestamp, @path, @size";
+
+        for (const std::string& tag : configuration.tags) {
+            insertStatement << ", @" << tag;
+        }
+
+        insertStatement << ")";
+
+        insertRotating = std::unique_ptr<SQLite::Statement>(new SQLite::Statement(*dbRotating, insertStatement.str()));
+        insertPermanent = std::unique_ptr<SQLite::Statement>(new SQLite::Statement(*dbPermanent, insertStatement.str()));
     }
 
     void Storage::Impl::InitializeCurrentDataItemBytes()
