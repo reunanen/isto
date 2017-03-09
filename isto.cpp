@@ -54,9 +54,9 @@ namespace isto {
         delete impl;
     }
 
-    void Storage::SaveData(const DataItem& dataItem)
+    void Storage::SaveData(const DataItem& dataItem, bool upsert)
     {
-        impl->SaveData(dataItem);
+        impl->SaveData(dataItem, upsert);
     }
 
     DataItem Storage::GetData(const std::string& id)

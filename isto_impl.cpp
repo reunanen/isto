@@ -23,7 +23,7 @@ namespace isto {
         InitializeCurrentDataItemBytes();
     }
 
-    bool Storage::Impl::SaveData(const DataItem& dataItem)
+    bool Storage::Impl::SaveData(const DataItem& dataItem, bool upsert)
     {
         if (!dataItem.isPermanent) {
             if (!DeleteExcessRotatingData(dataItem.data.size())) {
@@ -41,6 +41,13 @@ namespace isto {
         const std::string path = GetPath(dataItem.isPermanent, dataItem.timestamp, dataItem.id);
 
         {
+            if (!upsert) {
+                std::ifstream in(path, std::ios::binary);
+                if (in) {
+                    throw std::runtime_error("File " + path + " already exists");
+                }
+            }
+
             // rewrites an already existing file, if any
             std::ofstream out(path, std::ios::binary);
             out.write(reinterpret_cast<const char*>(dataItem.data.data()), dataItem.data.size());
@@ -296,7 +303,7 @@ namespace isto {
         else {
             assert(dataItem.isPermanent != destinationIsPermanent);
             const DataItem newDataItem(dataItem.id, dataItem.data, dataItem.timestamp, destinationIsPermanent, dataItem.tags);
-            if (SaveData(newDataItem)) {
+            if (SaveData(newDataItem, false)) {
                 DeleteItem(sourceIsPermanent, dataItem.timestamp, dataItem.id);
                 Flush(GetDatabase(sourceIsPermanent));
                 if (!sourceIsPermanent) {
@@ -380,7 +387,7 @@ namespace isto {
     void Storage::Impl::CreateStatements()
     {
         std::ostringstream insertStatement;
-        insertStatement << "insert into DataItems values (@id, @timestamp, @path, @size";
+        insertStatement << "insert or replace into DataItems values (@id, @timestamp, @path, @size";
 
         for (const std::string& tag : configuration.tags) {
             insertStatement << ", @" << tag;

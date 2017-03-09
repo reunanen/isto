@@ -15,7 +15,7 @@ namespace isto {
     public:
         Impl(const Configuration& configuration);
 
-        bool SaveData(const DataItem& dataItem);
+        bool SaveData(const DataItem& dataItem, bool upsert);
         DataItem GetData(const std::string& id);
         DataItem GetPermanentData(const std::string& id);
         DataItem GetRotatingData(const std::string& id);

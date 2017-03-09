@@ -60,7 +60,7 @@ namespace isto {
         Storage(const Configuration& configuration = Configuration());
         ~Storage();
         
-        void SaveData(const DataItem& dataItem);
+        void SaveData(const DataItem& dataItem, bool upsert = false);
 
         // Get data by id
         DataItem GetData(const std::string& id);

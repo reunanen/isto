@@ -126,6 +126,21 @@ namespace {
         EXPECT_THROW(storage->SaveData(*sampleDataItem), std::exception);
     }
 
+    TEST_F(IstoTest, DoesInsertDuplicateDataWhenExplicitlyRequested) {
+        EXPECT_NO_THROW(storage->SaveData(*sampleDataItem));
+        EXPECT_EQ(storage->GetIdsSortedByAscendingTimestamp().size(), 1);
+        EXPECT_EQ(storage->GetData(sampleDataId).data, sampleDataItem->data);
+
+        std::vector<unsigned char> newData(99);
+        newData[5] = '5';
+        isto::DataItem newDataItem(sampleDataId, newData);
+        EXPECT_NO_THROW(storage->SaveData(newDataItem, true));
+
+        EXPECT_EQ(storage->GetIdsSortedByAscendingTimestamp().size(), 1);
+        EXPECT_EQ(storage->GetData(sampleDataId).data, newData);
+        EXPECT_NE(storage->GetData(sampleDataId).data, sampleDataItem->data);
+    }
+
     TEST_F(IstoTest, MakesPermanentAndRotating) {
         storage->SaveData(*sampleDataItem);
         EXPECT_TRUE(storage->MakePermanent(sampleDataItem->id));
