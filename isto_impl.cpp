@@ -429,9 +429,19 @@ namespace isto {
 
                 currentRotatingDataItemBytes -= size;
                 hardDiskFreeBytes += size;
+
+                if (rotatingDataDeletedCallback != nullptr) {
+                    rotatingDataDeletedCallback(id);
+                }
             }
         }
 
         return !hasExcessData();
     }
+
+    void Storage::Impl::SetRotatingDataDeletedCallback(const rotating_data_deleted_callback_t& callback)
+    {
+        rotatingDataDeletedCallback = callback;
+    }
+
 }

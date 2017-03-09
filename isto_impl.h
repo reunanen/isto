@@ -25,6 +25,8 @@ namespace isto {
         bool MakePermanent(const std::string& id);
         bool MakeRotating(const std::string& id);
 
+        void SetRotatingDataDeletedCallback(const rotating_data_deleted_callback_t& callback);
+
     private:
         std::unique_ptr<SQLite::Database>& GetDatabase(bool isPermanent);
         DataItem GetData(std::unique_ptr<SQLite::Database>& db, const std::string& id);
@@ -62,6 +64,8 @@ namespace isto {
         std::unique_ptr<SQLite::Statement> insertPermanent;
 
         size_t currentRotatingDataItemBytes = -1;
+
+        rotating_data_deleted_callback_t rotatingDataDeletedCallback;
     };
 
 };

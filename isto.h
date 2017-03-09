@@ -10,11 +10,14 @@
 #include <chrono>
 #include <vector>
 #include <unordered_map>
+#include <functional>
 
 namespace isto {
     
     typedef std::chrono::system_clock::time_point timestamp_t;
     typedef std::unordered_map<std::string, std::string> tags_t;
+
+    typedef std::function<void(const std::string&)> rotating_data_deleted_callback_t;
 
     timestamp_t now();
 
@@ -71,6 +74,8 @@ namespace isto {
 
         // Unmake permanent
         bool MakeRotating(const std::string& id);
+
+        void SetRotatingDataDeletedCallback(const rotating_data_deleted_callback_t& callback);
 
     private:
         class Impl;

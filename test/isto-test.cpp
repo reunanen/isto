@@ -156,6 +156,20 @@ namespace {
         EXPECT_TRUE(storage->GetData("9.bin").isValid);
     }
 
+    TEST_F(IstoTest, AllowsApplicationToDetectThatExcessDataIsRemoved) {
+        // Set up new, tight limits
+        configuration.maxRotatingDataToKeepInGiB = 8.0 / 1024 / 1024; // 8 kiB
+        RecreateStorageWithUpdatedConfiguration();
+
+        int itemsDeleted = 0;
+
+        storage->SetRotatingDataDeletedCallback([&itemsDeleted](const std::string& id) { ++itemsDeleted; });
+
+        SaveSequentialData(10);
+
+        EXPECT_GT(itemsDeleted, 0);
+    }
+
     TEST_F(IstoTest, DoesNotFillHardDisk) {
         const auto initialSpace = boost::filesystem::space(boost::filesystem::path(configuration.rotatingDirectory));
 

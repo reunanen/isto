@@ -79,4 +79,8 @@ namespace isto {
         return impl->MakeRotating(id);
     }
 
+    void Storage::SetRotatingDataDeletedCallback(const rotating_data_deleted_callback_t& callback)
+    {
+        return impl->SetRotatingDataDeletedCallback(callback);
+    }
 }
