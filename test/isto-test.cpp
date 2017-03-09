@@ -18,11 +18,11 @@ namespace {
 
             // Set the directory name so that we shouldn't ever delete any real data.
 #ifdef WIN32
-            std::string rotatingDirectory = ".\\test-data\\rotating";
-            std::string permanentDirectory = ".\\test-data\\permanent";
+            configuration.rotatingDirectory = ".\\test-data\\rotating";
+            configuration.permanentDirectory = ".\\test-data\\permanent";
 #else // WIN32
-            std::string rotatingDirectory = ".//test-data//rotating";
-            std::string permanentDirectory = ".//test-data//permanent";
+            configuration.rotatingDirectory = ".//test-data//rotating";
+            configuration.permanentDirectory = ".//test-data//permanent";
 #endif // WIN32
 
             // Clean up existing databases, if any.
