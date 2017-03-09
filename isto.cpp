@@ -79,6 +79,11 @@ namespace isto {
         return impl->MakeRotating(id);
     }
 
+    std::deque<std::string> Storage::GetIdsSortedByAscendingTimestamp(const std::string& timestampBegin, const std::string& timestampEnd) const
+    {
+        return impl->GetIdsSortedByAscendingTimestamp(timestampBegin, timestampEnd);
+    }
+
     void Storage::SetRotatingDataDeletedCallback(const rotating_data_deleted_callback_t& callback)
     {
         return impl->SetRotatingDataDeletedCallback(callback);

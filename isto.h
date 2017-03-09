@@ -9,6 +9,7 @@
 
 #include <chrono>
 #include <vector>
+#include <deque>
 #include <unordered_map>
 #include <functional>
 
@@ -74,6 +75,9 @@ namespace isto {
 
         // Unmake permanent
         bool MakeRotating(const std::string& id);
+
+        // Leave timestamps empty in order not to limit the search
+        std::deque<std::string> GetIdsSortedByAscendingTimestamp(const std::string& timestampBegin = "", const std::string& timestampEnd = "") const;
 
         void SetRotatingDataDeletedCallback(const rotating_data_deleted_callback_t& callback);
 

@@ -439,6 +439,43 @@ namespace isto {
         return !hasExcessData();
     }
 
+    std::deque<std::string> Storage::Impl::GetIdsSortedByAscendingTimestamp(const std::string& timestampBegin, const std::string& timestampEnd) const
+    {
+        std::deque<std::string> ids;
+
+        std::ostringstream select;
+        select << "select id from DataItems";
+
+        bool whereAlreadyAdded = false;
+        const auto addWhereOrAnd = [&]() {
+            if (!whereAlreadyAdded) {
+                select << " where";
+                whereAlreadyAdded = true;
+            }
+            else {
+                select << " and";
+            }
+        };
+
+        if (!timestampBegin.empty()) {
+            addWhereOrAnd();
+            select << " timestamp >= '" + timestampBegin + "'";
+        }
+        if (!timestampEnd.empty()) {
+            addWhereOrAnd();
+            select << " timestamp < '" + timestampEnd + "'";
+        }
+
+        select << " order by timestamp asc";
+
+        SQLite::Statement query(*dbRotating, select.str());
+        while (query.executeStep()) {
+            const std::string id = query.getColumn(0);
+            ids.push_back(id);
+        }
+        return ids;
+    }
+
     void Storage::Impl::SetRotatingDataDeletedCallback(const rotating_data_deleted_callback_t& callback)
     {
         rotatingDataDeletedCallback = callback;

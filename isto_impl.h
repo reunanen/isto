@@ -25,6 +25,8 @@ namespace isto {
         bool MakePermanent(const std::string& id);
         bool MakeRotating(const std::string& id);
 
+        std::deque<std::string> GetIdsSortedByAscendingTimestamp(const std::string& timestampBegin, const std::string& timestampEnd) const;
+
         void SetRotatingDataDeletedCallback(const rotating_data_deleted_callback_t& callback);
 
     private:

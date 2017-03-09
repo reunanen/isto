@@ -143,6 +143,16 @@ namespace {
         EXPECT_EQ(retrievedDataItem.id, sampleDataItem->id);
     }    
 
+    TEST_F(IstoTest, ServesIdsOfSavedData) {
+        SaveSequentialData(10);
+        const auto ids = storage->GetIdsSortedByAscendingTimestamp();
+        EXPECT_EQ(ids.size(), 10);
+        if (!ids.empty()) {
+            EXPECT_EQ(ids.front(), "0.bin");
+            EXPECT_EQ(ids.back(), "9.bin");
+        }
+    }
+
     TEST_F(IstoTest, RemovesExcessData) {
         // Set up new, tight limits
         configuration.maxRotatingDataToKeepInGiB = 8.0 / 1024 / 1024; // 8 kiB
