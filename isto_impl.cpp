@@ -57,7 +57,14 @@ namespace isto {
         insert->bind(++index, dataItem.id);
         insert->bind(++index, timestamp);
         insert->bind(++index, path);
+
+#if SIZE_MAX > 0xffffffff
+        // 64-bit system
+        insert->bind(++index, static_cast<int64_t>(dataItem.data.size()));
+#else
+        // 32-bit system
         insert->bind(++index, dataItem.data.size());
+#endif
 
         auto tags = dataItem.tags;
 
@@ -119,7 +126,14 @@ namespace isto {
             int index = 0;
             const std::string timestampString = query.getColumn(index++);
             const std::string path = query.getColumn(index++);
+
+#if SIZE_MAX > 0xffffffff
+            // 64-bit system
+            const size_t size = query.getColumn(index++).getInt64();
+#else
+            // 32-bit system
             const size_t size = query.getColumn(index++);
+#endif
 
             tags_t tags;
             for (const std::string& tag : configuration.tags) {
@@ -405,7 +419,14 @@ namespace isto {
         SQLite::Statement query(*dbRotating, select);
 
         if (query.executeStep()) {
+#if SIZE_MAX > 0xffffffff
+            // 64-bit system
+            currentRotatingDataItemBytes = query.getColumn(0).getInt64();
+#else
+            // 32-bit system
             currentRotatingDataItemBytes = query.getColumn(0);
+#endif
+
         }
         else {
             throw std::runtime_error("Unable to initialize current data item bytes");
@@ -427,7 +448,13 @@ namespace isto {
             while (hasExcessData() && query.executeStep()) {
                 const std::string id = query.getColumn(0);
                 const std::string timestampString = query.getColumn(1);
+#if SIZE_MAX > 0xffffffff
+                // 64-bit system
+                const size_t size = query.getColumn(2).getInt64();
+#else
+                // 32-bit system
                 const size_t size = query.getColumn(2);
+#endif
 
                 assert(currentRotatingDataItemBytes >= size);
 
