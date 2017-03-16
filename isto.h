@@ -25,6 +25,7 @@ namespace isto {
     struct DataItem {
         DataItem(const std::string& id, const char* dataBegin, const char* dataEnd, const timestamp_t& timestamp = now(), bool isPermanent = false, const tags_t& tags = tags_t());
         DataItem(const std::string& id, const std::vector<unsigned char>& data, const timestamp_t& timestamp = now(), bool isPermanent = false, const tags_t& tags = tags_t());
+        DataItem(const std::string& id, const std::string& data, const timestamp_t& timestamp = now(), bool isPermanent = false, const tags_t& tags = tags_t());
 
         static DataItem Invalid();
 

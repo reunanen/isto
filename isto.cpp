@@ -33,6 +33,10 @@ namespace isto {
         , tags(tags)
     {}
 
+    DataItem::DataItem(const std::string& id, const std::string& data, const timestamp_t& timestamp, bool isPermanent, const tags_t& tags)
+        : DataItem(id, std::vector<unsigned char>(data.begin(), data.end()), timestamp, isPermanent, tags)
+    {}
+
     DataItem DataItem::Invalid()
     {
         return DataItem();
