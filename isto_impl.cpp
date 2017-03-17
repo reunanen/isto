@@ -337,6 +337,17 @@ namespace isto {
         boost::filesystem::path sourcePath = GetPath(isPermanent, timestamp, id);
         boost::filesystem::remove(sourcePath);
 
+        if (sourcePath.has_parent_path()) {
+            try {
+                if (boost::filesystem::is_empty(sourcePath.parent_path())) {
+                    boost::filesystem::remove(sourcePath.parent_path());
+                }
+            }
+            catch (std::exception& e) {
+                e;
+            }
+        }
+
         int deleted = GetDatabase(isPermanent)->exec("delete from DataItems where id = '" + id + "'");
         assert(deleted == 1);
     }
