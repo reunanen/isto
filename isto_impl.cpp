@@ -137,7 +137,7 @@ namespace isto {
 
             tags_t tags;
             for (const std::string& tag : configuration.tags) {
-                tags[tag] = query.getColumn(index++);
+                tags[tag] = query.getColumn(index++).getText();
             }
 
             std::vector<unsigned char> data(size);
@@ -200,10 +200,10 @@ namespace isto {
             SQLite::Statement queryRotating(*dbRotating, select);
             SQLite::Statement queryPermanent(*dbPermanent, select);
             if (queryRotating.executeStep()) {
-                rotatingTimestamp = queryRotating.getColumn(0);
+                rotatingTimestamp = queryRotating.getColumn(0).getText();
             }
             if (queryPermanent.executeStep()) {
-                permanentTimestamp = queryPermanent.getColumn(0);
+                permanentTimestamp = queryPermanent.getColumn(0).getText();
             }
             return std::pair<std::string, std::string>(rotatingTimestamp, permanentTimestamp);
         };
