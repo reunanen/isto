@@ -12,7 +12,7 @@
 #include <assert.h>
 
 namespace isto {
-    timestamp_t now() { return std::chrono::high_resolution_clock::now(); }
+    timestamp_t now() { return std::chrono::system_clock::now(); }
 
     timestamp_t RoundToUsedPrecision(const timestamp_t timestamp) {
         const timestamp_t rounded = system_clock_time_point_string_conversion::from_string(system_clock_time_point_string_conversion::to_string(timestamp));
@@ -68,7 +68,7 @@ namespace isto {
         return impl->GetData(id);
     }
 
-    DataItem Storage::GetData(const std::chrono::high_resolution_clock::time_point& timestamp, const std::string& comparisonOperator, const tags_t& tags)
+    DataItem Storage::GetData(const std::chrono::system_clock::time_point& timestamp, const std::string& comparisonOperator, const tags_t& tags)
     {
         return impl->GetData(timestamp, comparisonOperator, tags);
     }
