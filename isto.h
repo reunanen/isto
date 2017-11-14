@@ -63,6 +63,8 @@ namespace isto {
         
         void SaveData(const DataItem& dataItem, bool upsert = false);
 
+        void SaveData(const std::vector<DataItem>& dataItems, bool upsert = false);
+
         // Get data by id
         DataItem GetData(const std::string& id);
 

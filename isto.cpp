@@ -63,6 +63,11 @@ namespace isto {
         impl->SaveData(dataItem, upsert);
     }
 
+    void Storage::SaveData(const std::vector<DataItem>& dataItems, bool upsert)
+    {
+        impl->SaveData(dataItems, upsert);
+    }
+
     DataItem Storage::GetData(const std::string& id)
     {
         return impl->GetData(id);

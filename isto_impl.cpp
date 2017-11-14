@@ -9,6 +9,7 @@
 //#include "SQLiteCpp/include/SQLiteCpp/Transaction.h"
 #include "system_clock_time_point_string_conversion/system_clock_time_point_string_conversion.h"
 #include <boost/filesystem.hpp>
+#include <numeric> // std::accumulate
 #include <sstream>
 
 namespace isto {
@@ -32,6 +33,54 @@ namespace isto {
             currentRotatingDataItemBytes += dataItem.data.size();
         }
 
+        InsertDataItem(dataItem, upsert);
+
+        Flush(GetDatabase(dataItem.isPermanent));
+        return true;
+    }
+
+    bool Storage::Impl::SaveData(const std::vector<DataItem>& dataItems, bool upsert)
+    {
+        { // Make sure we have enough space
+            const size_t totalRotatingSizeNeeded = std::accumulate(dataItems.begin(), dataItems.end(), static_cast<size_t>(0),
+                [](size_t total, const DataItem& dataItem) {
+                    return total + (dataItem.isPermanent ? 0 : dataItem.data.size());
+                });
+
+            if (!DeleteExcessRotatingData(totalRotatingSizeNeeded)) {
+                return false;
+            }
+            currentRotatingDataItemBytes += totalRotatingSizeNeeded;
+        }
+
+        bool flushPermanent = false;
+        bool flushRotating = false;
+
+        for (const DataItem& dataItem : dataItems) {
+
+            InsertDataItem(dataItem, upsert);
+
+            if (dataItem.isPermanent) {
+                flushPermanent = true;
+            }
+            else {
+                flushRotating = true;
+            }
+        }
+
+        if (flushPermanent) {
+            Flush(GetDatabase(true));
+        }
+
+        if (flushRotating) {
+            Flush(GetDatabase(false));
+        }
+
+        return true;
+    }
+
+    void Storage::Impl::InsertDataItem(const DataItem& dataItem, bool upsert)
+    {
         auto& insert = dataItem.isPermanent ? insertPermanent : insertRotating;
 
         const std::string timestamp = system_clock_time_point_string_conversion::to_string(dataItem.timestamp);
@@ -79,10 +128,6 @@ namespace isto {
         insert->executeStep();
         insert->clearBindings();
         insert->reset();
-
-        Flush(GetDatabase(dataItem.isPermanent));
-
-        return true;
     }
 
     DataItem Storage::Impl::GetData(const std::string& id)
