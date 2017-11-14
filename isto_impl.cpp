@@ -10,6 +10,7 @@
 #include "system_clock_time_point_string_conversion/system_clock_time_point_string_conversion.h"
 #include <boost/filesystem.hpp>
 #include <numeric> // std::accumulate
+#include <future>
 #include <sstream>
 
 namespace isto {
@@ -89,18 +90,18 @@ namespace isto {
 
         const std::string path = GetPath(dataItem.isPermanent, dataItem.timestamp, dataItem.id);
 
-        {
-            if (!upsert) {
-                std::ifstream in(path, std::ios::binary);
-                if (in) {
-                    throw std::runtime_error("File " + path + " already exists");
-                }
+        if (!upsert) {
+            std::ifstream in(path, std::ios::binary);
+            if (in) {
+                throw std::runtime_error("File " + path + " already exists");
             }
+        }
 
+        std::future<void> fileWriteOperation = std::async(std::launch::async, [path, &dataItem]() {
             // rewrites an already existing file, if any
             std::ofstream out(path, std::ios::binary);
             out.write(reinterpret_cast<const char*>(dataItem.data.data()), dataItem.data.size());
-        }
+        });
 
         int index = 0;
         insert->bind(++index, dataItem.id);
@@ -128,6 +129,8 @@ namespace isto {
         insert->executeStep();
         insert->clearBindings();
         insert->reset();
+
+        fileWriteOperation.get(); // Wait until the file has really been written
     }
 
     DataItem Storage::Impl::GetData(const std::string& id)
