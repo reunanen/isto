@@ -130,7 +130,7 @@ namespace isto {
         insert->clearBindings();
         insert->reset();
 
-        fileWriteOperation.get(); // Wait until the file has really been written
+        fileWriteOperation.get(); // wait until the file has really been written
     }
 
     DataItem Storage::Impl::GetData(const std::string& id)
@@ -382,26 +382,31 @@ namespace isto {
 
     void Storage::Impl::DeleteItem(bool isPermanent, const timestamp_t& timestamp, const std::string& id)
     {
-        boost::filesystem::path sourcePath = GetPath(isPermanent, timestamp, id);
-        boost::filesystem::remove(sourcePath);
+        std::future<void> fileDeleteOperation = std::async(std::launch::async, [&]() {
 
-        try {
-            while (sourcePath.has_parent_path()) {
-                sourcePath = sourcePath.parent_path();
-                if (boost::filesystem::is_empty(sourcePath)) {
-                    boost::filesystem::remove(sourcePath);
-                }
-                else {
-                    break;
+            boost::filesystem::path sourcePath = GetPath(isPermanent, timestamp, id);
+            boost::filesystem::remove(sourcePath);
+
+            try {
+                while (sourcePath.has_parent_path()) {
+                    sourcePath = sourcePath.parent_path();
+                    if (boost::filesystem::is_empty(sourcePath)) {
+                        boost::filesystem::remove(sourcePath);
+                    }
+                    else {
+                        break;
+                    }
                 }
             }
-        }
-        catch (std::exception& e) {
-            e;
-        }
+            catch (std::exception& e) {
+                e;
+            }
+        });
 
         int deleted = GetDatabase(isPermanent)->exec("delete from DataItems where id = '" + id + "'");
         assert(deleted == 1);
+
+        fileDeleteOperation.get(); // wait until the file and the empty subdirs (if any) have really been deleted
     }
 
     void Storage::Impl::Flush(std::unique_ptr<SQLite::Database>& db)
