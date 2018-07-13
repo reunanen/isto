@@ -12,6 +12,7 @@
 #include <numeric> // std::accumulate
 #include <future>
 #include <sstream>
+#include <unordered_set>
 
 namespace isto {
     Storage::Impl::Impl(const Configuration& configuration)
@@ -27,23 +28,21 @@ namespace isto {
 
     bool Storage::Impl::SaveData(const DataItem& dataItem, bool upsert)
     {
-        if (!dataItem.isPermanent) {
-            if (!DeleteExcessRotatingData(dataItem.data.size())) {
-                return false;
-            }
-            currentRotatingDataItemBytes += dataItem.data.size();
-        }
-
-        InsertDataItem(dataItem, upsert);
-
-        Flush(GetDatabase(dataItem.isPermanent));
-        return true;
+        return SaveData(&dataItem, 1, upsert);
     }
 
     bool Storage::Impl::SaveData(const DataItems& dataItems, bool upsert)
     {
+        if (dataItems.empty()) {
+            return false;
+        }
+        return SaveData(&dataItems[0], dataItems.size(), upsert);
+    }
+
+    bool Storage::Impl::SaveData(const DataItem* dataItems, size_t dataItemCount, bool upsert)
+    {
         { // Make sure we have enough space
-            const size_t totalRotatingSizeNeeded = std::accumulate(dataItems.begin(), dataItems.end(), static_cast<size_t>(0),
+            const size_t totalRotatingSizeNeeded = std::accumulate(dataItems, dataItems + dataItemCount, static_cast<size_t>(0),
                 [](size_t total, const DataItem& dataItem) {
                     return total + (dataItem.isPermanent ? 0 : dataItem.data.size());
                 });
@@ -57,9 +56,64 @@ namespace isto {
         bool flushPermanent = false;
         bool flushRotating = false;
 
-        for (const DataItem& dataItem : dataItems) {
+        std::vector<std::string> directories(dataItemCount), paths(dataItemCount);
+        std::unordered_set<std::string> uniqueDirectories;
 
-            InsertDataItem(dataItem, upsert);
+        for (size_t i = 0; i < dataItemCount; ++i) {
+            const DataItem& dataItem = dataItems[i];
+            const std::string directory = GetDirectory(dataItem.isPermanent, dataItem.timestamp);
+            directories[i] = directory;
+            uniqueDirectories.insert(directory);
+
+            paths[i] = GetPath(dataItem.isPermanent, dataItem.timestamp, dataItem.id);
+        }
+
+        std::unordered_set<std::string> createdDirectories;
+
+        for (const auto& directory : uniqueDirectories) {
+            if (!boost::filesystem::exists(directory)) {
+                boost::filesystem::create_directories(directory);
+                createdDirectories.insert(directory);
+            }
+        }
+
+        assert(createdDirectories.size() <= uniqueDirectories.size());
+
+        std::vector<std::unique_ptr<std::future<bool>>> fileExistsOperations(dataItemCount);
+
+        const auto fileExists = [&](size_t i) {
+            return boost::filesystem::exists(paths[i]);
+        };
+
+        if (!upsert) {
+            for (size_t i = 0; i < dataItemCount; ++i) {
+                const bool directoryExistedBefore = createdDirectories.find(directories[i]) == createdDirectories.end();
+                if (directoryExistedBefore) {
+                    fileExistsOperations[i] = std::make_unique<std::future<bool>>(std::async(std::launch::async, fileExists, i));
+                }
+            }
+        }
+
+        std::vector<std::future<void>> fileWriteOperations(dataItemCount);
+
+        const auto writeFile = [&](size_t i) {
+            const DataItem& dataItem = dataItems[i];
+
+            std::ofstream out(paths[i], std::ios::binary);
+            out.write(reinterpret_cast<const char*>(dataItem.data.data()), dataItem.data.size());
+        };
+
+        for (size_t i = 0; i < dataItemCount; ++i) {
+            if (fileExistsOperations[i].get() != nullptr && fileExistsOperations[i]->get()) {
+                throw std::runtime_error("File " + paths[i] + " already exists");
+            }
+            fileWriteOperations[i] = std::async(std::launch::async, writeFile, i);
+        }
+
+        for (size_t i = 0; i < dataItemCount; ++i) {
+            const DataItem& dataItem = dataItems[i];
+
+            InsertDataItem(dataItem);
 
             if (dataItem.isPermanent) {
                 flushPermanent = true;
@@ -77,36 +131,19 @@ namespace isto {
             Flush(GetDatabase(false));
         }
 
+        for (auto& fileWriteOperation : fileWriteOperations) {
+            fileWriteOperation.get();
+        }
+
         return true;
     }
 
-    void Storage::Impl::InsertDataItem(const DataItem& dataItem, bool upsert)
+    void Storage::Impl::InsertDataItem(const DataItem& dataItem)
     {
-        auto& insert = dataItem.isPermanent ? insertPermanent : insertRotating;
-
         const std::string timestamp = system_clock_time_point_string_conversion::to_string(dataItem.timestamp);
-
-        const std::string directory = GetDirectory(dataItem.isPermanent, dataItem.timestamp);
-
-        const bool directoryExists = boost::filesystem::exists(directory);
-
-        if (!directoryExists) {
-            boost::filesystem::create_directories(directory);
-        }
-
         const std::string path = GetPath(dataItem.isPermanent, dataItem.timestamp, dataItem.id);
 
-        if (!upsert && directoryExists) {
-            if (boost::filesystem::exists(path)) {
-                throw std::runtime_error("File " + path + " already exists");
-            }
-        }
-
-        std::future<void> fileWriteOperation = std::async(std::launch::async, [path, &dataItem]() {
-            // rewrites an already existing file, if any
-            std::ofstream out(path, std::ios::binary);
-            out.write(reinterpret_cast<const char*>(dataItem.data.data()), dataItem.data.size());
-        });
+        auto& insert = dataItem.isPermanent ? insertPermanent : insertRotating;
 
         int index = 0;
         insert->bind(++index, dataItem.id);
@@ -134,8 +171,6 @@ namespace isto {
         insert->executeStep();
         insert->clearBindings();
         insert->reset();
-
-        fileWriteOperation.get(); // wait until the file has really been written
     }
 
     DataItem Storage::Impl::GetData(const std::string& id)

@@ -17,6 +17,7 @@ namespace isto {
 
         bool SaveData(const DataItem& dataItem, bool upsert);
         bool SaveData(const DataItems& dataItems, bool upsert);
+
         DataItem GetData(const std::string& id);
         DataItem GetPermanentData(const std::string& id);
         DataItem GetRotatingData(const std::string& id);
@@ -32,7 +33,8 @@ namespace isto {
         void SetRotatingDataDeletedCallback(const rotating_data_deleted_callback_t& callback);
 
     private:
-        void InsertDataItem(const DataItem& dataItem, bool upsert);
+        bool SaveData(const DataItem* dataItems, size_t dataItemCount, bool upsert);
+        void InsertDataItem(const DataItem& dataItem);
 
         std::unique_ptr<SQLite::Database>& GetDatabase(bool isPermanent);
         DataItem GetData(std::unique_ptr<SQLite::Database>& db, const std::string& id);
