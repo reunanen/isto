@@ -86,13 +86,18 @@ namespace isto {
 
         const std::string timestamp = system_clock_time_point_string_conversion::to_string(dataItem.timestamp);
 
-        boost::filesystem::create_directories(GetDirectory(dataItem.isPermanent, dataItem.timestamp));
+        const std::string directory = GetDirectory(dataItem.isPermanent, dataItem.timestamp);
+
+        const bool directoryExists = boost::filesystem::exists(directory);
+
+        if (!directoryExists) {
+            boost::filesystem::create_directories(directory);
+        }
 
         const std::string path = GetPath(dataItem.isPermanent, dataItem.timestamp, dataItem.id);
 
-        if (!upsert) {
-            std::ifstream in(path, std::ios::binary);
-            if (in) {
+        if (!upsert && directoryExists) {
+            if (boost::filesystem::exists(path)) {
                 throw std::runtime_error("File " + path + " already exists");
             }
         }
