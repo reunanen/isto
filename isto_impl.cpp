@@ -10,7 +10,6 @@
 #include "system_clock_time_point_string_conversion/system_clock_time_point_string_conversion.h"
 #include <boost/filesystem.hpp>
 #include <numeric> // std::accumulate
-#include <future>
 #include <sstream>
 #include <unordered_set>
 
@@ -187,17 +186,22 @@ namespace isto {
         return DataItem::Invalid();
     }
 
+    DataItem FromFuture(std::future<std::unique_ptr<DataItem>>& future)
+    {
+        return DataItem(*future.get().get());
+    }
+
     DataItem Storage::Impl::GetPermanentData(const std::string& id)
     {
-        return GetData(GetDatabase(true), id);
+        return FromFuture(GetData(GetDatabase(true), id, std::launch::deferred));
     }
     
     DataItem Storage::Impl::GetRotatingData(const std::string& id)
     {
-        return GetData(GetDatabase(false), id);
+        return FromFuture(GetData(GetDatabase(false), id, std::launch::deferred));
     }
 
-    DataItem Storage::Impl::GetData(std::unique_ptr<SQLite::Database>& db, const std::string& id)
+    std::future<std::unique_ptr<DataItem>> Storage::Impl::GetData(std::unique_ptr<SQLite::Database>& db, const std::string& id, std::launch preferredLaunchMode)
     {
         std::ostringstream select;
         select << "select timestamp, path, size";
@@ -228,21 +232,25 @@ namespace isto {
                 tags[tag] = query.getColumn(index++);
             }
 
-            std::vector<unsigned char> data(size);
-
-            if (size > 0) {
-                std::ifstream in(path, std::ios::binary);
-                in.read(reinterpret_cast<char*>(&data[0]), size);
-            }
+            const bool isPermanent = (db == dbPermanent);
 
             assert(!query.executeStep()); // we don't expect there's another item
 
-            const auto timestamp = system_clock_time_point_string_conversion::from_string(timestampString);
+            return std::async(std::launch::async, [id, timestampString, path, size, tags, isPermanent]() {
+                std::vector<unsigned char> data(size);
 
-            return DataItem(id, data, timestamp, db == dbPermanent, tags);
+                if (size > 0) {
+                    std::ifstream in(path, std::ios::binary);
+                    in.read(reinterpret_cast<char*>(&data[0]), size);
+                }
+
+                const auto timestamp = system_clock_time_point_string_conversion::from_string(timestampString);
+
+                return std::make_unique<DataItem>(DataItem(id, data, timestamp, isPermanent, tags));
+            });
         }
         else {
-            return DataItem::Invalid();
+            return std::async(std::launch::deferred, []() { return std::make_unique<DataItem>(DataItem::Invalid()); });
         }
     }
 
@@ -265,7 +273,7 @@ namespace isto {
 
         if (query.executeStep()) {
             const std::string id = query.getColumn(0);
-            return GetData(matchedTimestampAndCorrespondingDatabase.second, id);
+            return FromFuture(GetData(matchedTimestampAndCorrespondingDatabase.second, id, std::launch::deferred));
         }
         else {
             return DataItem::Invalid();
@@ -330,11 +338,19 @@ namespace isto {
 
         SQLite::Statement query(*db, select);
 
-        DataItems dataItems;
+        std::deque<std::future<std::unique_ptr<DataItem>>> futures;
 
         while (query.executeStep()) {
             const std::string id = query.getColumn(0);
-            dataItems.push_back(GetData(db, id));
+            const auto preferredLaunchMode = futures.empty() ? std::launch::deferred : std::launch::async;
+            futures.emplace_back(GetData(db, id, preferredLaunchMode));
+        }
+
+        DataItems dataItems;
+        dataItems.reserve(futures.size());
+
+        for (auto& future : futures) {
+            dataItems.emplace_back(FromFuture(future));
         }
 
         return dataItems;
@@ -466,7 +482,7 @@ namespace isto {
 
         std::unique_ptr<SQLite::Database>& dbSource = GetDatabase(sourceIsPermanent);
 
-        const DataItem dataItem = GetData(dbSource, id);
+        const DataItem dataItem = FromFuture(GetData(dbSource, id, std::launch::deferred));
         if (!dataItem.isValid) {
             return false;
         }

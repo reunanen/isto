@@ -8,6 +8,7 @@
 #include <SQLiteCpp/Database.h>
 #include <SQLiteCpp/Statement.h>
 #include <memory>
+#include <future>
 
 namespace isto {
     
@@ -37,7 +38,7 @@ namespace isto {
         void InsertDataItem(const DataItem& dataItem);
 
         std::unique_ptr<SQLite::Database>& GetDatabase(bool isPermanent);
-        DataItem GetData(std::unique_ptr<SQLite::Database>& db, const std::string& id);
+        std::future<std::unique_ptr<DataItem>> GetData(std::unique_ptr<SQLite::Database>& db, const std::string& id, std::launch preferredLaunchMode);
         DataItems GetDataItems(std::unique_ptr<SQLite::Database>& db, const timestamp_t& startTime, const timestamp_t& endTime, const tags_t& tags, size_t maxItems, Order order);
 
         std::string GetSubDir(bool isPermanent) const;
