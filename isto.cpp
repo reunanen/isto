@@ -63,7 +63,7 @@ namespace isto {
         impl->SaveData(dataItem, upsert);
     }
 
-    void Storage::SaveData(const std::vector<DataItem>& dataItems, bool upsert)
+    void Storage::SaveData(const DataItems& dataItems, bool upsert)
     {
         impl->SaveData(dataItems, upsert);
     }
@@ -76,6 +76,11 @@ namespace isto {
     DataItem Storage::GetData(const std::chrono::high_resolution_clock::time_point& timestamp, const std::string& comparisonOperator, const tags_t& tags)
     {
         return impl->GetData(timestamp, comparisonOperator, tags);
+    }
+
+    DataItems Storage::GetDataItems(const timestamp_t& startTime, const timestamp_t& endTime, const tags_t& tags, const size_t maxItems, Order order)
+    {
+        return impl->GetDataItems(startTime, endTime, tags, maxItems, order);
     }
 
     bool Storage::MakePermanent(const std::string& id)

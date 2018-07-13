@@ -41,6 +41,8 @@ namespace isto {
         DataItem();
     };
 
+    typedef std::vector<DataItem> DataItems;
+
     struct Configuration {
 #ifdef _WIN32
         std::string rotatingDirectory = ".\\data\\rotating";
@@ -56,6 +58,12 @@ namespace isto {
         std::vector<std::string> tags; // tags are string values like "camera": "1" or "detected_size": "too large"
     };
 
+    enum class Order {
+        DontCare,
+        Ascending,
+        Descending
+    };
+
     class Storage {
     public:
         Storage(const Configuration& configuration = Configuration());
@@ -63,7 +71,7 @@ namespace isto {
         
         void SaveData(const DataItem& dataItem, bool upsert = false);
 
-        void SaveData(const std::vector<DataItem>& dataItems, bool upsert = false);
+        void SaveData(const DataItems& dataItems, bool upsert = false);
 
         // Get data by id
         DataItem GetData(const std::string& id);
@@ -71,6 +79,15 @@ namespace isto {
         // Get data by timestamp
         // - supported comparison operators: "<", "<=", "==", ">=", ">", "~" (nearest)
         DataItem GetData(const timestamp_t& timestamp = std::chrono::high_resolution_clock::now(), const std::string& comparisonOperator = "~", const tags_t& tags = tags_t());
+
+        // Get potentially multiple data items by start time and end time (which are both inclusive)
+        DataItems GetDataItems(
+            const timestamp_t& startTime = timestamp_t(),
+            const timestamp_t& endTime = std::chrono::high_resolution_clock::now(),
+            const tags_t& tags = tags_t(),
+            const size_t maxItems = 1000,
+            Order order = Order::DontCare
+        );
 
         // Keep a certain data item forever
         // - for example, if manually labeled in a supervised training setting

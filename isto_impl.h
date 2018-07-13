@@ -16,12 +16,13 @@ namespace isto {
         Impl(const Configuration& configuration);
 
         bool SaveData(const DataItem& dataItem, bool upsert);
-        bool SaveData(const std::vector<DataItem>& dataItems, bool upsert);
+        bool SaveData(const DataItems& dataItems, bool upsert);
         DataItem GetData(const std::string& id);
         DataItem GetPermanentData(const std::string& id);
         DataItem GetRotatingData(const std::string& id);
         
         DataItem GetData(const timestamp_t& timestamp, const std::string& comparisonOperator, const tags_t& tags);
+        DataItems GetDataItems(const timestamp_t& startTime, const timestamp_t& endTime, const tags_t& tags, size_t maxItems, Order order);
 
         bool MakePermanent(const std::string& id);
         bool MakeRotating(const std::string& id);
@@ -35,6 +36,7 @@ namespace isto {
 
         std::unique_ptr<SQLite::Database>& GetDatabase(bool isPermanent);
         DataItem GetData(std::unique_ptr<SQLite::Database>& db, const std::string& id);
+        DataItems GetDataItems(std::unique_ptr<SQLite::Database>& db, const timestamp_t& startTime, const timestamp_t& endTime, const tags_t& tags, size_t maxItems, Order order);
 
         std::string GetSubDir(bool isPermanent) const;
         std::string GetDirectory(bool isPermanent, const timestamp_t& timestamp) const;

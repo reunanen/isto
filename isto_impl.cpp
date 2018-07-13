@@ -40,7 +40,7 @@ namespace isto {
         return true;
     }
 
-    bool Storage::Impl::SaveData(const std::vector<DataItem>& dataItems, bool upsert)
+    bool Storage::Impl::SaveData(const DataItems& dataItems, bool upsert)
     {
         { // Make sure we have enough space
             const size_t totalRotatingSizeNeeded = std::accumulate(dataItems.begin(), dataItems.end(), static_cast<size_t>(0),
@@ -230,6 +230,74 @@ namespace isto {
         else {
             return DataItem::Invalid();
         }
+    }
+
+    DataItems Storage::Impl::GetDataItems(const timestamp_t& startTime, const timestamp_t& endTime, const tags_t& tags, size_t maxItems, Order order)
+    {
+        DataItems rotatingDataItems  = GetDataItems(dbRotating,  startTime, endTime, tags, maxItems, order);
+        DataItems permanentDataItems = GetDataItems(dbPermanent, startTime, endTime, tags, maxItems, order);
+
+        if (permanentDataItems.empty()) { return rotatingDataItems;  }
+        if (rotatingDataItems.empty())  { return permanentDataItems; }
+
+        std::vector<const DataItem*> allDataItems;
+        allDataItems.reserve(rotatingDataItems.size() + permanentDataItems.size());
+
+        for (const auto& i : rotatingDataItems)  { allDataItems.push_back(&i); }
+        for (const auto& i : permanentDataItems) { allDataItems.push_back(&i); }
+
+        const auto timestampCompare = [](const DataItem* lhs, const DataItem* rhs) {
+            return lhs->timestamp < rhs->timestamp;
+        };
+
+        if (order == Order::Ascending) {
+            std::sort(allDataItems.begin(), allDataItems.end(), timestampCompare);
+        }
+        else if (order == Order::Descending) {
+            std::sort(allDataItems.rbegin(), allDataItems.rend(), timestampCompare);
+        }
+
+        const size_t resultSize = std::min(allDataItems.size(), maxItems);
+
+        DataItems result;
+        result.reserve(resultSize);
+
+        for (size_t i = 0; i < resultSize; ++i) {
+            result.push_back(std::move(*allDataItems[i]));
+        }
+
+        return result;
+    }
+
+    DataItems Storage::Impl::GetDataItems(std::unique_ptr<SQLite::Database>& db, const timestamp_t& startTime, const timestamp_t& endTime, const tags_t& tags, size_t maxItems, Order order)
+    {
+        std::string select = "select id from DataItems where "
+            "timestamp >= '" + system_clock_time_point_string_conversion::to_string(startTime) + "' and "
+            "timestamp <= '" + system_clock_time_point_string_conversion::to_string(endTime) + "'";
+
+        for (const auto& tag : tags) {
+            select += " and " + tag.first + " = '" + tag.second + "'";
+        }
+
+        if (order == Order::Ascending) {
+            select += " order by timestamp asc";
+        }
+        else if (order == Order::Descending) {
+            select += " order by timestamp desc";
+        }
+
+        select += " limit " + std::to_string(maxItems);
+
+        SQLite::Statement query(*db, select);
+
+        DataItems dataItems;
+
+        while (query.executeStep()) {
+            const std::string id = query.getColumn(0);
+            dataItems.push_back(GetData(db, id));
+        }
+
+        return dataItems;
     }
 
     std::pair<std::string, std::unique_ptr<SQLite::Database>&> Storage::Impl::FindMatchingTimestampAndCorrespondingDatabase(

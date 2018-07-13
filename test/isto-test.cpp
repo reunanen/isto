@@ -468,4 +468,59 @@ namespace {
         }
     }
 
+    TEST_F(IstoTest, GetsMultipleDataItemWithSingleQuery) {
+
+        const auto now = isto::now();
+
+        const int totalItemCount = 10;
+        for (int i = 0; i < totalItemCount; ++i) {
+            const isto::DataItem dataItem(std::to_string(i + 1) + ".bin", sampleDataItem->data, now - std::chrono::microseconds(totalItemCount - i));
+            storage->SaveData(dataItem);
+        }
+
+        { // gets any items with default params
+            const auto dataItems = storage->GetDataItems(isto::timestamp_t(), std::chrono::high_resolution_clock::now());
+            EXPECT_EQ(dataItems.size(), totalItemCount);
+        }
+
+        { // gets any five items
+            const auto dataItems = storage->GetDataItems(isto::timestamp_t(), std::chrono::high_resolution_clock::now(), isto::tags_t(), 5, isto::Order::DontCare);
+            EXPECT_EQ(dataItems.size(), 5);
+        }
+
+        { // gets zero items
+            const auto dataItems = storage->GetDataItems(isto::timestamp_t(), std::chrono::high_resolution_clock::now(), isto::tags_t(), 0);
+            EXPECT_EQ(dataItems.size(), 0);
+        }
+
+        const auto timestampCompare = [](const isto::DataItem& lhs, const isto::DataItem& rhs) {
+            return lhs.timestamp < rhs.timestamp;
+        };
+
+        { // gets the first five items
+            const auto dataItems = storage->GetDataItems(isto::timestamp_t(), std::chrono::high_resolution_clock::now(), isto::tags_t(), 5, isto::Order::Ascending);
+            EXPECT_EQ(dataItems.size(), 5);
+            if (!dataItems.empty()) {
+                EXPECT_EQ(dataItems.front().id, "1.bin");
+            }
+            EXPECT_TRUE(std::is_sorted(dataItems.begin(), dataItems.end(), timestampCompare));
+        }
+
+        { // gets the last five items
+            const auto dataItems = storage->GetDataItems(isto::timestamp_t(), std::chrono::high_resolution_clock::now(), isto::tags_t(), 5, isto::Order::Descending);
+            EXPECT_EQ(dataItems.size(), 5);
+            if (!dataItems.empty()) {
+                EXPECT_EQ(dataItems.front().id, std::to_string(totalItemCount) + ".bin");
+            }
+            EXPECT_TRUE(std::is_sorted(dataItems.rbegin(), dataItems.rend(), timestampCompare));
+        }
+
+        { // gets the middle items by exact range
+            const auto startTime = now - std::chrono::microseconds(7);
+            const auto endTime = now - std::chrono::microseconds(3);
+            const auto dataItems = storage->GetDataItems(startTime, endTime);
+            EXPECT_EQ(dataItems.size(), 5);
+        }
+    }
+
 }  // namespace
