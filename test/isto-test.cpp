@@ -468,7 +468,7 @@ namespace {
         }
     }
 
-    TEST_F(IstoTest, GetsMultipleDataItemWithSingleQuery) {
+    TEST_F(IstoTest, GetsMultipleDataItemsWithSingleQuery) {
 
         const auto now = isto::now();
 
@@ -479,7 +479,7 @@ namespace {
         }
 
         { // gets any items with default params
-            const auto dataItems = storage->GetDataItems(isto::timestamp_t(), std::chrono::high_resolution_clock::now());
+            const auto dataItems = storage->GetDataItems();
             EXPECT_EQ(dataItems.size(), totalItemCount);
         }
 
