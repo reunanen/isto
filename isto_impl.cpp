@@ -104,6 +104,10 @@ namespace isto {
 
         for (size_t i = 0; i < dataItemCount; ++i) {
             if (fileExistsOperations[i].get() != nullptr && fileExistsOperations[i]->get()) {
+                for (size_t j = 0; j < i; ++j) {
+                    // Wait for already-initiated operations to finish before throwing
+                    fileWriteOperations[j].get();
+                }
                 throw std::runtime_error("File " + paths[i] + " already exists");
             }
             fileWriteOperations[i] = std::async(std::launch::async, writeFile, i);
