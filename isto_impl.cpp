@@ -93,9 +93,12 @@ namespace isto {
 
         for (size_t i = 0; i < dataItemCount; ++i) {
             const bool directoryExistedBefore = createdDirectories.find(directories[i]) == createdDirectories.end();
-            if (directoryExistedBefore) {
-                getExistingFileSizeOperations[i] = std::make_unique<GetExistingFileSizeOperation>(std::async(std::launch::async, getFileSize, i));
-            }
+
+            auto getFileSizeOperation = directoryExistedBefore
+                ? std::async(std::launch::async, getFileSize, i)
+                : std::async(std::launch::deferred, []() { return std::unique_ptr<uintmax_t>(); });
+
+            getExistingFileSizeOperations[i] = std::make_unique<GetExistingFileSizeOperation>(std::move(getFileSizeOperation));
         }
 
         std::vector<std::unique_ptr<std::future<void>>> fileWriteOperations(dataItemCount);
@@ -115,26 +118,20 @@ namespace isto {
                 fileWriteOperations[i] = std::make_unique<std::future<void>>(std::async(std::launch::async, writeFile, i));
             };
 
-            if (getExistingFileSizeOperations[i].get() != nullptr) {
-                const auto existingFileSize = getExistingFileSizeOperations[i]->get();
-                if (existingFileSize.get()) {
-                    if (upsert) {
-                        // file exists, but we're upserting
-                        currentRotatingDataItemBytes -= *existingFileSize;
-                        startFileWriteOperation();
-                    }
-                    else {
-                        // file exists and not upserting - this is an error
-                        filesThatAlreadyExistWhenNotUpserting.push_back(paths[i]);
-                    }
+            const auto existingFileSize = getExistingFileSizeOperations[i]->get();
+            if (existingFileSize.get()) {
+                if (upsert) {
+                    // file exists, but we're upserting
+                    currentRotatingDataItemBytes -= *existingFileSize;
+                    startFileWriteOperation();
                 }
                 else {
-                    // the file did not exist before
-                    startFileWriteOperation();
+                    // file exists and not upserting - this is an error
+                    filesThatAlreadyExistWhenNotUpserting.push_back(paths[i]);
                 }
             }
             else {
-                // the directory did not exist before (so assuming no race conditions, the file can't really exist either)
+                // the file did not exist before
                 startFileWriteOperation();
             }
         }
