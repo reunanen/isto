@@ -40,7 +40,7 @@ namespace isto {
 
     bool Storage::Impl::SaveData(const DataItem* dataItems, size_t dataItemCount, bool upsert)
     {
-        { // Make sure we have enough space
+        { // Make sure we have enough space - TODO: when upserting, subtract from the total needed size the sizes of the files that will now be overwritten
             const size_t totalRotatingSizeNeeded = std::accumulate(dataItems, dataItems + dataItemCount, static_cast<size_t>(0),
                 [](size_t total, const DataItem& dataItem) {
                     return total + (dataItem.isPermanent ? 0 : dataItem.data.size());
@@ -49,7 +49,6 @@ namespace isto {
             if (!DeleteExcessRotatingData(totalRotatingSizeNeeded)) {
                 return false;
             }
-            currentRotatingDataItemBytes += totalRotatingSizeNeeded;
         }
 
         bool flushPermanent = false;
@@ -78,22 +77,28 @@ namespace isto {
 
         assert(createdDirectories.size() <= uniqueDirectories.size());
 
-        std::vector<std::unique_ptr<std::future<bool>>> fileExistsOperations(dataItemCount);
+        typedef std::unique_ptr<uintmax_t> FileSizeIfAny;
+        typedef std::future<FileSizeIfAny> GetExistingFileSizeOperation;
 
-        const auto fileExists = [&](size_t i) {
-            return boost::filesystem::exists(paths[i]);
+        std::vector<std::unique_ptr<GetExistingFileSizeOperation>> getExistingFileSizeOperations(dataItemCount);
+
+        const auto getFileSize = [&](size_t i) {
+            if (boost::filesystem::exists(paths[i])) {
+                return std::make_unique<uintmax_t>(boost::filesystem::file_size(paths[i]));
+            }
+            else {
+                return std::unique_ptr<uintmax_t>();
+            }
         };
 
-        if (!upsert) {
-            for (size_t i = 0; i < dataItemCount; ++i) {
-                const bool directoryExistedBefore = createdDirectories.find(directories[i]) == createdDirectories.end();
-                if (directoryExistedBefore) {
-                    fileExistsOperations[i] = std::make_unique<std::future<bool>>(std::async(std::launch::async, fileExists, i));
-                }
+        for (size_t i = 0; i < dataItemCount; ++i) {
+            const bool directoryExistedBefore = createdDirectories.find(directories[i]) == createdDirectories.end();
+            if (directoryExistedBefore) {
+                getExistingFileSizeOperations[i] = std::make_unique<GetExistingFileSizeOperation>(std::async(std::launch::async, getFileSize, i));
             }
         }
 
-        std::vector<std::future<void>> fileWriteOperations(dataItemCount);
+        std::vector<std::unique_ptr<std::future<void>>> fileWriteOperations(dataItemCount);
 
         const auto writeFile = [&](size_t i) {
             const DataItem& dataItem = dataItems[i];
@@ -102,27 +107,55 @@ namespace isto {
             out.write(reinterpret_cast<const char*>(dataItem.data.data()), dataItem.data.size());
         };
 
+        std::deque<std::string> filesThatAlreadyExistWhenNotUpserting;
+
         for (size_t i = 0; i < dataItemCount; ++i) {
-            if (fileExistsOperations[i].get() != nullptr && fileExistsOperations[i]->get()) {
-                for (size_t j = 0; j < i; ++j) {
-                    // Wait for already-initiated operations to finish before throwing
-                    fileWriteOperations[j].get();
+
+            const auto startFileWriteOperation = [&]() {
+                fileWriteOperations[i] = std::make_unique<std::future<void>>(std::async(std::launch::async, writeFile, i));
+            };
+
+            if (getExistingFileSizeOperations[i].get() != nullptr) {
+                const auto existingFileSize = getExistingFileSizeOperations[i]->get();
+                if (existingFileSize.get()) {
+                    if (upsert) {
+                        // file exists, but we're upserting
+                        currentRotatingDataItemBytes -= *existingFileSize;
+                        startFileWriteOperation();
+                    }
+                    else {
+                        // file exists and not upserting - this is an error
+                        filesThatAlreadyExistWhenNotUpserting.push_back(paths[i]);
+                    }
                 }
-                throw std::runtime_error("File " + paths[i] + " already exists");
+                else {
+                    // the file did not exist before
+                    startFileWriteOperation();
+                }
             }
-            fileWriteOperations[i] = std::async(std::launch::async, writeFile, i);
+            else {
+                // the directory did not exist before (so assuming no race conditions, the file can't really exist either)
+                startFileWriteOperation();
+            }
         }
 
         for (size_t i = 0; i < dataItemCount; ++i) {
-            const DataItem& dataItem = dataItems[i];
 
-            InsertDataItem(dataItem);
+            const bool fileWriteOperationWasActuallyStarted = fileWriteOperations[i].get() != nullptr;
 
-            if (dataItem.isPermanent) {
-                flushPermanent = true;
-            }
-            else {
-                flushRotating = true;
+            if (fileWriteOperationWasActuallyStarted) { // was a file write operation actually started?
+                const DataItem& dataItem = dataItems[i];
+
+                InsertDataItem(dataItem);
+
+                if (dataItem.isPermanent) {
+                    flushPermanent = true;
+                }
+                else {
+                    flushRotating = true;
+                }
+
+                currentRotatingDataItemBytes += dataItem.data.size();
             }
         }
 
@@ -135,7 +168,24 @@ namespace isto {
         }
 
         for (auto& fileWriteOperation : fileWriteOperations) {
-            fileWriteOperation.get();
+            if (fileWriteOperation.get()) {
+                fileWriteOperation->get(); // wait for the operation to complete
+            }
+        }
+
+        if (!filesThatAlreadyExistWhenNotUpserting.empty()) {
+            assert(!upsert);
+            std::string error;
+            if (filesThatAlreadyExistWhenNotUpserting.size() == 1) {
+                error = "File " + filesThatAlreadyExistWhenNotUpserting[0] + " already exists";
+            }
+            else {
+                error = "Files that already exist:";
+                for (const auto& filename : filesThatAlreadyExistWhenNotUpserting) {
+                    error += "\n" + filename;
+                }
+            }
+            throw std::runtime_error(error);
         }
 
         return true;
@@ -615,14 +665,7 @@ namespace isto {
         SQLite::Statement query(*dbRotating, select);
 
         if (query.executeStep()) {
-#if SIZE_MAX > 0xffffffff
-            // 64-bit system
             currentRotatingDataItemBytes = query.getColumn(0).getInt64();
-#else
-            // 32-bit system
-            currentRotatingDataItemBytes = query.getColumn(0);
-#endif
-
         }
         else {
             throw std::runtime_error("Unable to initialize current data item bytes");

@@ -73,7 +73,7 @@ namespace isto {
         std::unique_ptr<SQLite::Statement> insertRotating;
         std::unique_ptr<SQLite::Statement> insertPermanent;
 
-        size_t currentRotatingDataItemBytes = -1;
+        uintmax_t currentRotatingDataItemBytes = -1;
 
         rotating_data_deleted_callback_t rotatingDataDeletedCallback;
     };
