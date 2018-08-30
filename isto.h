@@ -56,6 +56,8 @@ namespace isto {
         double minFreeDiskSpaceInGiB = 0.5;
 
         std::vector<std::string> tags; // tags are string values like "camera": "1" or "detected_size": "too large"
+
+        unsigned int deletionFlushInterval = 1000;
     };
 
     enum class Order {

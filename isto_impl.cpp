@@ -681,6 +681,8 @@ namespace isto {
         if (hasExcessData()) {
             const std::string select = "select id, timestamp, size from DataItems order by timestamp asc";
             SQLite::Statement query(*dbRotating, select);
+            unsigned int deleteCounter = 0;
+
             while (hasExcessData() && query.executeStep()) {
                 const std::string id = query.getColumn(0);
                 const std::string timestampString = query.getColumn(1);
@@ -703,6 +705,15 @@ namespace isto {
                 if (rotatingDataDeletedCallback != nullptr) {
                     rotatingDataDeletedCallback(id);
                 }
+
+                if (++deleteCounter >= configuration.deletionFlushInterval) {
+                    Flush(GetDatabase(false));
+                    deleteCounter = 0;
+                }
+            }
+
+            if (deleteCounter > 0) {
+                Flush(GetDatabase(false));
             }
         }
 
