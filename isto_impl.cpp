@@ -157,11 +157,11 @@ namespace isto {
         }
 
         if (flushPermanent) {
-            Flush(GetDatabase(true));
+            FlushPermanent();
         }
 
         if (flushRotating) {
-            Flush(GetDatabase(false));
+            FlushRotating();
         }
 
         for (auto& fileWriteOperation : fileWriteOperations) {
@@ -584,6 +584,16 @@ namespace isto {
         fileDeleteOperation.get(); // wait until the file and the empty subdirs (if any) have really been deleted
     }
 
+    void Storage::Impl::FlushRotating()
+    {
+        Flush(GetDatabase(false));
+    }
+
+    void Storage::Impl::FlushPermanent()
+    {
+        Flush(GetDatabase(true));
+    }
+
     void Storage::Impl::Flush(std::unique_ptr<SQLite::Database>& db)
     {
         db->exec("commit");
@@ -707,13 +717,13 @@ namespace isto {
                 }
 
                 if (++deleteCounter >= configuration.deletionFlushInterval) {
-                    Flush(GetDatabase(false));
+                    FlushRotating();
                     deleteCounter = 0;
                 }
             }
 
             if (deleteCounter > 0) {
-                Flush(GetDatabase(false));
+                FlushRotating();
             }
         }
 

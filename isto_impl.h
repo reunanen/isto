@@ -58,6 +58,8 @@ namespace isto {
         bool MoveDataItem(bool sourceIsPermanent, bool destinationIsPermanent, const std::string& id);
         void DeleteItem(bool isPermanent, const timestamp_t& timestamp, const std::string& id);
 
+        void FlushRotating();
+        void FlushPermanent();
         void Flush(std::unique_ptr<SQLite::Database>& db);
 
         std::pair<std::string, std::unique_ptr<SQLite::Database>&> FindMatchingTimestampAndCorrespondingDatabase(
