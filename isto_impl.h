@@ -63,7 +63,7 @@ namespace isto {
         void Flush(std::unique_ptr<SQLite::Database>& db);
 
         std::pair<std::string, std::unique_ptr<SQLite::Database>&> FindMatchingTimestampAndCorrespondingDatabase(
-            const std::chrono::high_resolution_clock::time_point& timestamp,
+            const std::chrono::system_clock::time_point& timestamp,
             const std::string& comparisonOperator,
             const tags_t& tags);
 

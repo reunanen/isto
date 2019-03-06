@@ -280,7 +280,7 @@ namespace isto {
 
             tags_t tags;
             for (const std::string& tag : configuration.tags) {
-                tags[tag] = query.getColumn(index++);
+                tags[tag] = query.getColumn(index++).getText();
             }
 
             const bool isPermanent = (db == dbPermanent);
@@ -408,7 +408,7 @@ namespace isto {
     }
 
     std::pair<std::string, std::unique_ptr<SQLite::Database>&> Storage::Impl::FindMatchingTimestampAndCorrespondingDatabase(
-        const std::chrono::high_resolution_clock::time_point& timestamp,
+        const std::chrono::system_clock::time_point& timestamp,
         const std::string& comparisonOperator,
         const tags_t& tags)
     {
@@ -423,10 +423,10 @@ namespace isto {
             SQLite::Statement queryRotating(*dbRotating, select);
             SQLite::Statement queryPermanent(*dbPermanent, select);
             if (queryRotating.executeStep()) {
-                rotatingTimestamp = queryRotating.getColumn(0);
+                rotatingTimestamp = queryRotating.getColumn(0).getText();
             }
             if (queryPermanent.executeStep()) {
-                permanentTimestamp = queryPermanent.getColumn(0);
+                permanentTimestamp = queryPermanent.getColumn(0).getText();
             }
             return std::pair<std::string, std::string>(rotatingTimestamp, permanentTimestamp);
         };

@@ -80,7 +80,7 @@ namespace isto {
 
         // Get data by timestamp
         // - supported comparison operators: "<", "<=", "==", ">=", ">", "~" (nearest)
-        DataItem GetData(const timestamp_t& timestamp = std::chrono::high_resolution_clock::now(), const std::string& comparisonOperator = "~", const tags_t& tags = tags_t());
+        DataItem GetData(const timestamp_t& timestamp = std::chrono::system_clock::now(), const std::string& comparisonOperator = "~", const tags_t& tags = tags_t());
 
         // Get potentially multiple data items by start time and end time (which are both inclusive)
         DataItems GetDataItems(
