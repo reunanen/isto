@@ -85,7 +85,7 @@ namespace isto {
         // Get potentially multiple data items by start time and end time (which are both inclusive)
         DataItems GetDataItems(
             const timestamp_t& startTime = timestamp_t(),
-            const timestamp_t& endTime = std::chrono::high_resolution_clock::now(),
+            const timestamp_t& endTime = std::chrono::system_clock::now(),
             const tags_t& tags = tags_t(),
             const size_t maxItems = 1000,
             Order order = Order::DontCare
