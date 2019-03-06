@@ -8,12 +8,16 @@
 #include "SQLiteCpp/sqlite3/sqlite3.h"
 //#include "SQLiteCpp/include/SQLiteCpp/Transaction.h"
 #include "system_clock_time_point_string_conversion/system_clock_time_point_string_conversion.h"
-#include <boost/filesystem.hpp>
+#include <filesystem>
 #include <numeric> // std::accumulate
+#include <fstream>
 #include <sstream>
 #include <unordered_set>
+#include <assert.h>
 
 namespace isto {
+    namespace fs = std::experimental::filesystem;
+
     Storage::Impl::Impl(const Configuration& configuration)
         : configuration(configuration)
     {
@@ -69,8 +73,8 @@ namespace isto {
         std::unordered_set<std::string> createdDirectories;
 
         for (const auto& directory : uniqueDirectories) {
-            if (!boost::filesystem::exists(directory)) {
-                boost::filesystem::create_directories(directory);
+            if (!fs::exists(directory)) {
+                fs::create_directories(directory);
                 createdDirectories.insert(directory);
             }
         }
@@ -83,8 +87,8 @@ namespace isto {
         std::vector<std::unique_ptr<GetExistingFileSizeOperation>> getExistingFileSizeOperations(dataItemCount);
 
         const auto getFileSize = [&](size_t i) {
-            if (boost::filesystem::exists(paths[i])) {
-                return std::make_unique<uintmax_t>(boost::filesystem::file_size(paths[i]));
+            if (fs::exists(paths[i])) {
+                return std::make_unique<uintmax_t>(fs::file_size(paths[i]));
             }
             else {
                 return std::unique_ptr<uintmax_t>();
@@ -506,13 +510,13 @@ namespace isto {
     std::string Storage::Impl::GetDirectory(bool isPermanent, const timestamp_t& timestamp) const
     {
         const std::string timestampString = system_clock_time_point_string_conversion::to_string(timestamp);
-        return (boost::filesystem::path(GetSubDir(isPermanent)) / timestampString.substr(0, 10) / timestampString.substr(11, 2) / timestampString.substr(14, 2)).string();
+        return (fs::path(GetSubDir(isPermanent)) / timestampString.substr(0, 10) / timestampString.substr(11, 2) / timestampString.substr(14, 2)).string();
     }
 
     std::string Storage::Impl::GetPath(bool isPermanent, const timestamp_t& timestamp, const std::string& id) const
     {
         // note that the id doubles as a filename
-        return (boost::filesystem::path(GetDirectory(isPermanent, timestamp)) / id).string();
+        return (fs::path(GetDirectory(isPermanent, timestamp)) / id).string();
     }
 
     bool Storage::Impl::MakePermanent(const std::string& id)
@@ -529,7 +533,7 @@ namespace isto {
     {
         assert(sourceIsPermanent != destinationIsPermanent);
 
-        // TODO: could be optimized by moving the file (see boost::filesystem::rename) - instead of reading, writing, and deleting
+        // TODO: could be optimized by moving the file (see fs::rename) - instead of reading, writing, and deleting
 
         std::unique_ptr<SQLite::Database>& dbSource = GetDatabase(sourceIsPermanent);
 
@@ -559,14 +563,14 @@ namespace isto {
     {
         std::future<void> fileDeleteOperation = std::async(std::launch::async, [&]() {
 
-            boost::filesystem::path sourcePath = GetPath(isPermanent, timestamp, id);
-            boost::filesystem::remove(sourcePath);
+            fs::path sourcePath = GetPath(isPermanent, timestamp, id);
+            fs::remove(sourcePath);
 
             try {
                 while (sourcePath.has_parent_path()) {
                     sourcePath = sourcePath.parent_path();
-                    if (boost::filesystem::is_empty(sourcePath)) {
-                        boost::filesystem::remove(sourcePath);
+                    if (fs::is_empty(sourcePath)) {
+                        fs::remove(sourcePath);
                     }
                     else {
                         break;
@@ -607,19 +611,19 @@ namespace isto {
 
     std::string Storage::Impl::GetSubDir(bool isPermanent) const
     {
-        return boost::filesystem::path(isPermanent ? configuration.permanentDirectory : configuration.rotatingDirectory).string();
+        return fs::path(isPermanent ? configuration.permanentDirectory : configuration.rotatingDirectory).string();
     }
 
     void Storage::Impl::CreateDirectoriesThatDoNotExist()
     {
-        boost::filesystem::create_directories(GetSubDir(false));
-        boost::filesystem::create_directories(GetSubDir(true));
+        fs::create_directories(GetSubDir(false));
+        fs::create_directories(GetSubDir(true));
     }
 
     void Storage::Impl::CreateDatabases()
     {
-        dbRotating = std::unique_ptr<SQLite::Database>(new SQLite::Database((boost::filesystem::path(GetSubDir(false)) / "isto_rotating.sqlite").string(), SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE));
-        dbPermanent = std::unique_ptr<SQLite::Database>(new SQLite::Database((boost::filesystem::path(GetSubDir(true)) / "isto_permanent.sqlite").string(), SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE));
+        dbRotating = std::unique_ptr<SQLite::Database>(new SQLite::Database((fs::path(GetSubDir(false)) / "isto_rotating.sqlite").string(), SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE));
+        dbPermanent = std::unique_ptr<SQLite::Database>(new SQLite::Database((fs::path(GetSubDir(true)) / "isto_permanent.sqlite").string(), SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE));
 
         dbRotating->exec("begin exclusive");
         dbPermanent->exec("begin exclusive");
@@ -681,7 +685,7 @@ namespace isto {
 
     bool Storage::Impl::DeleteExcessRotatingData(size_t sizeToBeInserted)
     {
-        auto hardDiskFreeBytes = boost::filesystem::space(boost::filesystem::path(configuration.rotatingDirectory)).free;
+        auto hardDiskFreeBytes = fs::space(fs::path(configuration.rotatingDirectory)).free;
 
         const auto hasExcessData = [&]() {
             return currentRotatingDataItemBytes + sizeToBeInserted > configuration.maxRotatingDataToKeepInGiB * 1024 * 1024 * 1024
