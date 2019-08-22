@@ -506,15 +506,22 @@ namespace isto {
     std::string Storage::Impl::GetDirectory(bool isPermanent, const timestamp_t& timestamp, Configuration::DirectoryStructureResolution resolution) const
     {
         const std::string timestampString = system_clock_time_point_string_conversion::to_string(timestamp);
+
+        const auto getDaysDirectory = [&]() {
+            return boost::filesystem::path(GetSubDir(isPermanent)) / timestampString.substr(0, 10);
+        };
+        const auto getHoursDirectory = [&]() {
+            return getDaysDirectory() / timestampString.substr(11, 2);
+        };
+        const auto getMinutesDirectory = [&]() {
+            return getHoursDirectory() / timestampString.substr(14, 2);
+        };
+
         switch (resolution) {
-        case Configuration::DirectoryStructureResolution::Minutes:
-            return (boost::filesystem::path(GetSubDir(isPermanent)) / timestampString.substr(0, 10) / timestampString.substr(11, 2) / timestampString.substr(14, 2)).string();
-        case Configuration::DirectoryStructureResolution::Hours:
-            return (boost::filesystem::path(GetSubDir(isPermanent)) / timestampString.substr(0, 10) / timestampString.substr(11, 2)).string();
-        case Configuration::DirectoryStructureResolution::Days:
-            return (boost::filesystem::path(GetSubDir(isPermanent)) / timestampString.substr(0, 10)).string();
-        default:
-            throw std::runtime_error("Unknown directory structure resolution: " + std::to_string(static_cast<int>(resolution)));
+        case Configuration::DirectoryStructureResolution::Minutes: return getMinutesDirectory().string();
+        case Configuration::DirectoryStructureResolution::Hours:   return getHoursDirectory()  .string();
+        case Configuration::DirectoryStructureResolution::Days:    return getDaysDirectory()   .string();
+        default: throw std::runtime_error("Unknown directory structure resolution: " + std::to_string(static_cast<int>(resolution)));
         }
     }
 
