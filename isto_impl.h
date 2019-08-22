@@ -42,8 +42,8 @@ namespace isto {
         DataItems GetDataItems(std::unique_ptr<SQLite::Database>& db, const timestamp_t& startTime, const timestamp_t& endTime, const tags_t& tags, size_t maxItems, Order order);
 
         std::string GetSubDir(bool isPermanent) const;
-        std::string GetDirectory(bool isPermanent, const timestamp_t& timestamp) const;
-        std::string GetPath(bool isPermanent, const timestamp_t& timestamp, const std::string& id) const;
+        std::string GetDirectory(bool isPermanent, const timestamp_t& timestamp, Configuration::DirectoryStructureResolution resolution) const;
+        std::string GetPath(bool isPermanent, const timestamp_t& timestamp, const std::string& id, Configuration::DirectoryStructureResolution resolution) const;
 
         void CreateDirectoriesThatDoNotExist();
         void CreateDatabases();

@@ -63,11 +63,11 @@ namespace isto {
 
         for (size_t i = 0; i < dataItemCount; ++i) {
             const DataItem& dataItem = dataItems[i];
-            const std::string directory = GetDirectory(dataItem.isPermanent, dataItem.timestamp);
+            const std::string directory = GetDirectory(dataItem.isPermanent, dataItem.timestamp, configuration.directoryStructureResolution);
             directories[i] = directory;
             uniqueDirectories.insert(directory);
 
-            paths[i] = GetPath(dataItem.isPermanent, dataItem.timestamp, dataItem.id);
+            paths[i] = GetPath(dataItem.isPermanent, dataItem.timestamp, dataItem.id, configuration.directoryStructureResolution);
         }
 
         std::unordered_set<std::string> createdDirectories;
@@ -195,7 +195,7 @@ namespace isto {
     void Storage::Impl::InsertDataItem(const DataItem& dataItem)
     {
         const std::string timestamp = system_clock_time_point_string_conversion::to_string(dataItem.timestamp);
-        const std::string path = GetPath(dataItem.isPermanent, dataItem.timestamp, dataItem.id);
+        const std::string path = GetPath(dataItem.isPermanent, dataItem.timestamp, dataItem.id, configuration.directoryStructureResolution);
 
         auto& insert = dataItem.isPermanent ? insertPermanent : insertRotating;
 
@@ -507,16 +507,25 @@ namespace isto {
         }
     }
 
-    std::string Storage::Impl::GetDirectory(bool isPermanent, const timestamp_t& timestamp) const
+    std::string Storage::Impl::GetDirectory(bool isPermanent, const timestamp_t& timestamp, Configuration::DirectoryStructureResolution resolution) const
     {
         const std::string timestampString = system_clock_time_point_string_conversion::to_string(timestamp);
-        return (fs::path(GetSubDir(isPermanent)) / timestampString.substr(0, 10) / timestampString.substr(11, 2) / timestampString.substr(14, 2)).string();
+        switch (resolution) {
+        case Configuration::DirectoryStructureResolution::Minutes:
+            return (fs::path(GetSubDir(isPermanent)) / timestampString.substr(0, 10) / timestampString.substr(11, 2) / timestampString.substr(14, 2)).string();
+        case Configuration::DirectoryStructureResolution::Hours:
+            return (fs::path(GetSubDir(isPermanent)) / timestampString.substr(0, 10) / timestampString.substr(11, 2)).string();
+        case Configuration::DirectoryStructureResolution::Days:
+            return (fs::path(GetSubDir(isPermanent)) / timestampString.substr(0, 10)).string();
+        default:
+            throw std::runtime_error("Unknown directory structure resolution: " + std::to_string(static_cast<int>(resolution)));
+        }
     }
 
-    std::string Storage::Impl::GetPath(bool isPermanent, const timestamp_t& timestamp, const std::string& id) const
+    std::string Storage::Impl::GetPath(bool isPermanent, const timestamp_t& timestamp, const std::string& id, Configuration::DirectoryStructureResolution resolution) const
     {
         // note that the id doubles as a filename
-        return (fs::path(GetDirectory(isPermanent, timestamp)) / id).string();
+        return (fs::path(GetDirectory(isPermanent, timestamp, resolution)) / id).string();
     }
 
     bool Storage::Impl::MakePermanent(const std::string& id)
@@ -563,7 +572,7 @@ namespace isto {
     {
         std::future<void> fileDeleteOperation = std::async(std::launch::async, [&]() {
 
-            fs::path sourcePath = GetPath(isPermanent, timestamp, id);
+            fs::path sourcePath = GetPath(isPermanent, timestamp, id, configuration.directoryStructureResolution);
             fs::remove(sourcePath);
 
             try {

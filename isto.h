@@ -58,6 +58,19 @@ namespace isto {
         std::vector<std::string> tags; // tags are string values like "camera": "1" or "detected_size": "too large"
 
         unsigned int deletionFlushInterval = 1000;
+
+        enum class DirectoryStructureResolution {
+            Unspecified = 0,
+
+            // Not supported at the moment, but reserved for future purposes
+            //Milliseconds = 1,
+            //Seconds = 2,
+            Minutes = 3,
+            Hours = 4,
+            Days = 5
+        };
+
+        DirectoryStructureResolution directoryStructureResolution = DirectoryStructureResolution::Minutes;
     };
 
     enum class Order {
