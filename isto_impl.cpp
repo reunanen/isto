@@ -558,12 +558,24 @@ namespace isto {
 
             const bool isSourceSameAsDestination = configuration.permanentDirectory == configuration.rotatingDirectory;
 
+            const auto updateRotatingDataItemBytes = [&]() {
+                const auto size = dataItem.data.size();
+                if (sourceIsPermanent) {
+                    currentRotatingDataItemBytes += size;
+                }
+                else {
+                    assert(currentRotatingDataItemBytes >= size);
+                    currentRotatingDataItemBytes -= size;
+                }
+            };
+
             if (isSourceSameAsDestination) {
                 const std::string noPayload;
                 DataItem newItem(dataItem.id, noPayload, dataItem.timestamp, destinationIsPermanent, dataItem.tags);
                 InsertDataItem(newItem);
                 int deleted = dbSource->exec("delete from DataItems where id = '" + id + "'");
                 assert(deleted == 1);
+                updateRotatingDataItemBytes();
                 return true;
             }
             else {
@@ -571,10 +583,7 @@ namespace isto {
                 if (SaveData(newDataItem, false)) {
                     DeleteItem(sourceIsPermanent, dataItem.timestamp, dataItem.id);
                     Flush(GetDatabase(sourceIsPermanent));
-                    if (!sourceIsPermanent) {
-                        assert(currentRotatingDataItemBytes >= dataItem.data.size());
-                        currentRotatingDataItemBytes -= dataItem.data.size();
-                    }
+                    updateRotatingDataItemBytes();
                     return true;
                 }
                 else {
