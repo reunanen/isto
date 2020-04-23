@@ -21,8 +21,8 @@ namespace {
             configuration.rotatingDirectory = ".\\test-data\\rotating";
             configuration.permanentDirectory = ".\\test-data\\permanent";
 #else // WIN32
-            configuration.rotatingDirectory = ".//test-data//rotating";
-            configuration.permanentDirectory = ".//test-data//permanent";
+            configuration.rotatingDirectory = "./test-data/rotating";
+            configuration.permanentDirectory = "./test-data/permanent";
 #endif // WIN32
 
             // Clean up existing databases, if any.
@@ -521,6 +521,29 @@ namespace {
             const auto dataItems = storage->GetDataItems(startTime, endTime);
             EXPECT_EQ(dataItems.size(), 5);
         }
+    }
+
+    TEST_F(IstoTest, WorksReasonablyWhenPermanentAndRotatingPointToSameDirectory) {
+        isto::Configuration sharedConfiguration;
+
+#ifdef WIN32
+        const std::string sharedDirectory = ".\\test-data-shared";
+#else // WIN32
+        const std::string sharedDirectory = "./test-data-shared";
+#endif // WIN32
+
+        fs::remove_all(sharedDirectory);
+
+        sharedConfiguration.rotatingDirectory = sharedDirectory;
+        sharedConfiguration.permanentDirectory = sharedDirectory;
+
+        isto::Storage sharedStorage(sharedConfiguration);
+
+        sharedStorage.SaveData(*sampleDataItem);
+        EXPECT_TRUE(sharedStorage.MakePermanent(sampleDataItem->id));
+        EXPECT_EQ(sharedStorage.GetData(sampleDataItem->id).isPermanent, true);
+        EXPECT_TRUE(sharedStorage.MakeRotating(sampleDataItem->id));
+        EXPECT_EQ(sharedStorage.GetData(sampleDataItem->id).isPermanent, false);
     }
 
 }  // namespace
