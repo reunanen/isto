@@ -575,6 +575,7 @@ namespace isto {
                 InsertDataItem(newItem);
                 int deleted = dbSource->exec("delete from DataItems where id = '" + id + "'");
                 assert(deleted == 1);
+                Flush(GetDatabase(sourceIsPermanent));
                 updateRotatingDataItemBytes();
                 return true;
             }
