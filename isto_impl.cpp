@@ -559,18 +559,31 @@ namespace isto {
         }
         else {
             assert(dataItem.isPermanent != destinationIsPermanent);
-            DeleteItem(sourceIsPermanent, dataItem.timestamp, dataItem.id);
-            const DataItem newDataItem(dataItem.id, dataItem.data, dataItem.timestamp, destinationIsPermanent, dataItem.tags);
-            if (SaveData(newDataItem, false)) {
-                Flush(GetDatabase(sourceIsPermanent));
-                if (!sourceIsPermanent) {
-                    assert(currentRotatingDataItemBytes >= dataItem.data.size());
-                    currentRotatingDataItemBytes -= dataItem.data.size();
-                }
+
+            const bool isSourceSameAsDestination = configuration.permanentDirectory == configuration.rotatingDirectory;
+
+            if (isSourceSameAsDestination) {
+                const std::string noPayload;
+                DataItem newItem(dataItem.id, noPayload, dataItem.timestamp, destinationIsPermanent, dataItem.tags);
+                InsertDataItem(newItem);
+                int deleted = dbSource->exec("delete from DataItems where id = '" + id + "'");
+                assert(deleted == 1);
                 return true;
             }
             else {
-                return false;
+                const DataItem newDataItem(dataItem.id, dataItem.data, dataItem.timestamp, destinationIsPermanent, dataItem.tags);
+                if (SaveData(newDataItem, false)) {
+                    DeleteItem(sourceIsPermanent, dataItem.timestamp, dataItem.id);
+                    Flush(GetDatabase(sourceIsPermanent));
+                    if (!sourceIsPermanent) {
+                        assert(currentRotatingDataItemBytes >= dataItem.data.size());
+                        currentRotatingDataItemBytes -= dataItem.data.size();
+                    }
+                    return true;
+                }
+                else {
+                    return false;
+                }
             }
         }
     }
