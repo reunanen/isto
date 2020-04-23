@@ -559,9 +559,9 @@ namespace isto {
         }
         else {
             assert(dataItem.isPermanent != destinationIsPermanent);
+            DeleteItem(sourceIsPermanent, dataItem.timestamp, dataItem.id);
             const DataItem newDataItem(dataItem.id, dataItem.data, dataItem.timestamp, destinationIsPermanent, dataItem.tags);
             if (SaveData(newDataItem, false)) {
-                DeleteItem(sourceIsPermanent, dataItem.timestamp, dataItem.id);
                 Flush(GetDatabase(sourceIsPermanent));
                 if (!sourceIsPermanent) {
                     assert(currentRotatingDataItemBytes >= dataItem.data.size());
