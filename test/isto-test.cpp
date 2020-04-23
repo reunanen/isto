@@ -7,7 +7,9 @@
 #include "../isto.h"
 #include <gtest/gtest.h>
 #include <numeric> // std::iota
-#include <boost/filesystem.hpp>
+#include <filesystem>
+
+namespace fs = std::experimental::filesystem;
 
 namespace {
 
@@ -26,8 +28,8 @@ namespace {
 #endif // WIN32
 
             // Clean up existing databases, if any.
-            boost::filesystem::remove_all(configuration.rotatingDirectory);
-            boost::filesystem::remove_all(configuration.permanentDirectory);
+            fs::remove_all(configuration.rotatingDirectory);
+            fs::remove_all(configuration.permanentDirectory);
 
             storage = std::unique_ptr<isto::Storage>(new isto::Storage(configuration));
 
@@ -196,14 +198,14 @@ namespace {
     }
 
     TEST_F(IstoTest, DoesNotFillHardDisk) {
-        const auto initialSpace = boost::filesystem::space(boost::filesystem::path(configuration.rotatingDirectory));
+        const auto initialSpace = fs::space(fs::path(configuration.rotatingDirectory));
 
         // First fill up the database
         SaveSequentialData(20);
 
         EXPECT_TRUE(storage->MakePermanent("3.bin"));
 
-        const auto afterSaving1 = boost::filesystem::space(boost::filesystem::path(configuration.rotatingDirectory));
+        const auto afterSaving1 = fs::space(fs::path(configuration.rotatingDirectory));
 
         // Set up new, tight limits
         configuration.maxRotatingDataToKeepInGiB = 1.0;
@@ -212,7 +214,7 @@ namespace {
 
         SaveSequentialData(20);
 
-        const auto afterSaving2 = boost::filesystem::space(boost::filesystem::path(configuration.rotatingDirectory));
+        const auto afterSaving2 = fs::space(fs::path(configuration.rotatingDirectory));
 
         EXPECT_FALSE(storage->GetData("0.bin").isValid);
         EXPECT_FALSE(storage->GetData("1.bin").isValid);
@@ -225,7 +227,7 @@ namespace {
     }
 
     TEST_F(IstoTest, DoesNotSaveRotatingIfHardDiskAlreadyFull) {
-        const auto space = boost::filesystem::space(boost::filesystem::path(configuration.rotatingDirectory));
+        const auto space = fs::space(fs::path(configuration.rotatingDirectory));
 
         configuration.maxRotatingDataToKeepInGiB = 1.0;
         configuration.minFreeDiskSpaceInGiB = space.free / 1024.0 / 1024.0 / 1024.0;
@@ -237,7 +239,7 @@ namespace {
     }
 
     TEST_F(IstoTest, DoesSavePermanentEvenIfRotatingAlreadyFull) {
-        const auto space = boost::filesystem::space(boost::filesystem::path(configuration.rotatingDirectory));
+        const auto space = fs::space(fs::path(configuration.rotatingDirectory));
 
         configuration.maxRotatingDataToKeepInGiB = 1.0;
         configuration.minFreeDiskSpaceInGiB = space.free / 1024.0 / 1024.0 / 1024.0;
@@ -484,12 +486,12 @@ namespace {
         }
 
         { // gets any five items
-            const auto dataItems = storage->GetDataItems(isto::timestamp_t(), std::chrono::high_resolution_clock::now(), isto::tags_t(), 5, isto::Order::DontCare);
+            const auto dataItems = storage->GetDataItems(isto::timestamp_t(), std::chrono::system_clock::now(), isto::tags_t(), 5, isto::Order::DontCare);
             EXPECT_EQ(dataItems.size(), 5);
         }
 
         { // gets zero items
-            const auto dataItems = storage->GetDataItems(isto::timestamp_t(), std::chrono::high_resolution_clock::now(), isto::tags_t(), 0);
+            const auto dataItems = storage->GetDataItems(isto::timestamp_t(), std::chrono::system_clock::now(), isto::tags_t(), 0);
             EXPECT_EQ(dataItems.size(), 0);
         }
 
@@ -498,7 +500,7 @@ namespace {
         };
 
         { // gets the first five items
-            const auto dataItems = storage->GetDataItems(isto::timestamp_t(), std::chrono::high_resolution_clock::now(), isto::tags_t(), 5, isto::Order::Ascending);
+            const auto dataItems = storage->GetDataItems(isto::timestamp_t(), std::chrono::system_clock::now(), isto::tags_t(), 5, isto::Order::Ascending);
             EXPECT_EQ(dataItems.size(), 5);
             if (!dataItems.empty()) {
                 EXPECT_EQ(dataItems.front().id, "1.bin");
@@ -507,7 +509,7 @@ namespace {
         }
 
         { // gets the last five items
-            const auto dataItems = storage->GetDataItems(isto::timestamp_t(), std::chrono::high_resolution_clock::now(), isto::tags_t(), 5, isto::Order::Descending);
+            const auto dataItems = storage->GetDataItems(isto::timestamp_t(), std::chrono::system_clock::now(), isto::tags_t(), 5, isto::Order::Descending);
             EXPECT_EQ(dataItems.size(), 5);
             if (!dataItems.empty()) {
                 EXPECT_EQ(dataItems.front().id, std::to_string(totalItemCount) + ".bin");
