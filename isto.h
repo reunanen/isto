@@ -71,6 +71,8 @@ namespace isto {
         };
 
         DirectoryStructureResolution directoryStructureResolution = DirectoryStructureResolution::Minutes;
+
+        bool makeReadOnlyFilesPermanent = true;
     };
 
     enum class Order {

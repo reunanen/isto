@@ -750,6 +750,33 @@ namespace isto {
                 assert(currentRotatingDataItemBytes >= size);
 
                 const auto timestamp = system_clock_time_point_string_conversion::from_string(timestampString);
+
+                if (configuration.makeReadOnlyFilesPermanent) {
+                    const auto path = GetPath(false, timestamp, id, configuration.directoryStructureResolution);
+                    const auto permissions = fs::status(path).permissions();
+                    const auto isWritable = (permissions & decltype(permissions)::owner_write) != decltype(permissions)::none;
+
+                    if (!isWritable) {
+                        // Make a read-only file permanent
+
+                        if (configuration.permanentDirectory != configuration.rotatingDirectory) {
+                            // We'll have to move the file, so we'll need it to be writable
+                            const auto newPermissions = permissions | fs::perms::owner_write | fs::perms::group_write | fs::perms::others_write;
+                            fs::permissions(path, newPermissions);
+                        }
+
+                        MakePermanent(id);
+
+                        if (configuration.permanentDirectory != configuration.rotatingDirectory) {
+                            // Restore the permissions
+                            const auto newPath = GetPath(true, timestamp, id, configuration.directoryStructureResolution);
+                            fs::permissions(newPath, permissions);
+                        }
+
+                        continue;
+                    }
+                }
+
                 DeleteItem(false, timestamp, id);
 
                 currentRotatingDataItemBytes -= size;

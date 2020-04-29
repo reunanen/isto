@@ -548,4 +548,63 @@ namespace {
         EXPECT_EQ(sharedStorage.GetData(sampleDataItem->id).isPermanent, false);
     }
 
+    TEST_F(IstoTest, MakesReadOnlyDataPermanent) {
+        // Set up new, tight limits
+        configuration.maxRotatingDataToKeepInGiB = 8.0 / 1024 / 1024; // 8 kiB
+
+        // Test both shared and non-shared directory structures
+        for (int samePath = 0; samePath <= 1; ++samePath) {
+            if (samePath) {
+#ifdef WIN32
+                const std::string sharedDirectory = ".\\test-data-shared";
+#else // WIN32
+                const std::string sharedDirectory = "./test-data-shared";
+#endif // WIN32
+                configuration.rotatingDirectory = sharedDirectory;
+                configuration.permanentDirectory = sharedDirectory;
+            }
+            else {
+#ifdef WIN32
+                configuration.rotatingDirectory = ".\\test-data\\rotating";
+                configuration.permanentDirectory = ".\\test-data\\permanent";
+#else // WIN32
+                configuration.rotatingDirectory = "./test-data/rotating";
+                configuration.permanentDirectory = "./test-data/permanent";
+#endif // WIN32
+            }
+
+            RecreateStorageWithUpdatedConfiguration();
+
+            // Use a known filename
+            isto::timestamp_t timestamp = std::chrono::system_clock::from_time_t(0);
+            const auto id = "important-stuff.bin";
+            const auto path = fs::path("1970-01-01") / "00" / "00" / id;
+            const auto rotatingPath = fs::path(configuration.rotatingDirectory) / path;
+            ASSERT_FALSE(fs::exists(rotatingPath)); // ... which shouldn't exist yet
+
+            // Save a data item
+            storage->SaveData(isto::DataItem(id, sampleDataItem->data, timestamp));
+            ASSERT_TRUE(fs::exists(rotatingPath));
+            EXPECT_FALSE(storage->GetData(id).isPermanent);
+
+            // Make the file read-only
+            const auto originalPermissions = fs::status(rotatingPath).permissions();
+            const auto newPermissions = originalPermissions
+                & ~fs::perms::owner_write
+                & ~fs::perms::group_write
+                & ~fs::perms::others_write;
+            fs::permissions(rotatingPath, newPermissions);
+
+            // Make it so that some files will be deleted
+            SaveSequentialData(10);
+
+            // We should still have our important data item
+            EXPECT_TRUE(storage->GetData(id).isValid);
+            EXPECT_TRUE(storage->GetData(id).isPermanent);
+
+            // Restore permissions
+            fs::permissions(fs::path(configuration.permanentDirectory) / path, originalPermissions);
+        }
+    }
+
 }  // namespace
