@@ -83,7 +83,8 @@ namespace isto {
         std::vector<std::unique_ptr<GetExistingFileSizeOperation>> getExistingFileSizeOperations(dataItemCount);
 
         const auto getFileSize = [&](size_t i) {
-            if (boost::filesystem::exists(paths[i])) {
+            const auto& path = paths[i];
+            if (boost::filesystem::exists(path) && !boost::filesystem::is_directory(path)) {
                 return std::make_unique<uintmax_t>(boost::filesystem::file_size(paths[i]));
             }
             else {
