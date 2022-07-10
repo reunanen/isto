@@ -13,6 +13,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "message-recorder", "message
 		{4375BAC5-0E9A-4B45-9792-903178269253} = {4375BAC5-0E9A-4B45-9792-903178269253}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "message-player", "message-player\message-player.vcxproj", "{3CC3A5E0-D419-43A5-B7BF-598A38CE1F5E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -45,6 +47,14 @@ Global
 		{960E4AF2-0890-416A-8FBE-E427B7FAA357}.Release|Win32.Build.0 = Release|Win32
 		{960E4AF2-0890-416A-8FBE-E427B7FAA357}.Release|x64.ActiveCfg = Release|x64
 		{960E4AF2-0890-416A-8FBE-E427B7FAA357}.Release|x64.Build.0 = Release|x64
+		{3CC3A5E0-D419-43A5-B7BF-598A38CE1F5E}.Debug|Win32.ActiveCfg = Debug|Win32
+		{3CC3A5E0-D419-43A5-B7BF-598A38CE1F5E}.Debug|Win32.Build.0 = Debug|Win32
+		{3CC3A5E0-D419-43A5-B7BF-598A38CE1F5E}.Debug|x64.ActiveCfg = Debug|x64
+		{3CC3A5E0-D419-43A5-B7BF-598A38CE1F5E}.Debug|x64.Build.0 = Debug|x64
+		{3CC3A5E0-D419-43A5-B7BF-598A38CE1F5E}.Release|Win32.ActiveCfg = Release|Win32
+		{3CC3A5E0-D419-43A5-B7BF-598A38CE1F5E}.Release|Win32.Build.0 = Release|Win32
+		{3CC3A5E0-D419-43A5-B7BF-598A38CE1F5E}.Release|x64.ActiveCfg = Release|x64
+		{3CC3A5E0-D419-43A5-B7BF-598A38CE1F5E}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
