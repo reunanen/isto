@@ -5,6 +5,7 @@
 //          http://www.boost.org/LICENSE_1_0.txt)
 
 #include "../system_clock_time_point_string_conversion/system_clock_time_point_string_conversion.h"
+#include "../zip/src/zip.h"
 
 #include <messaging/claim/PostOffice.h>
 #include <messaging/claim/AttributeMessage.h>
@@ -59,12 +60,17 @@ try {
     std::unique_ptr<std::chrono::steady_clock::time_point> prevMessageSentTime;
     std::chrono::system_clock::time_point prevMessageOriginalTime;
 
+    std::string uncompressedDataBuffer;
+
     // recursive_directory_iterator would be nice, but the order isn't guaranteed
 
     const std::function<void(const fs::path&)> iterate = [&](const fs::path& path) {
         std::deque<fs::path> entries;
         for (const auto& entry : fs::directory_iterator(path)) {
             if (fs::is_directory(entry) || entry.path().extension() == ".msg") {
+                entries.push_back(entry);
+            }
+            else if (entry.path().extension() == ".zip" && entry.path().stem().extension() == ".msg") {
                 entries.push_back(entry);
             }
         }
@@ -76,10 +82,14 @@ try {
             }
             else {
                 numcfc::Logger::LogAndEcho("Reading file: " + entry.string());
-                assert(entry.extension() == ".msg");
+                assert(entry.extension() == ".msg" || entry.extension() == ".zip");
+                const bool isCompressed = entry.extension() == ".zip";
+
                 if (speedFactor > 0) {
                     const auto id = entry.stem().string();
-                    std::string timestamp = id;
+                    std::string timestamp = isCompressed
+                        ? entry.stem().stem().string()
+                        : entry.stem().string();
                     std::replace(timestamp.begin(), timestamp.end(), '_', ':');
                     const auto originalMessageTime = system_clock_time_point_string_conversion::from_string(timestamp);
                     if (prevMessageSentTime) {
@@ -93,10 +103,51 @@ try {
                     }
                     prevMessageOriginalTime = originalMessageTime;
                 }
-                std::ifstream in(entry, std::ios::binary);
+
+                std::unique_ptr<std::ifstream> uncompressedFileStream;
+                std::unique_ptr<std::istringstream> uncompressedMemoryStream;
+
+                if (!isCompressed) {
+                    uncompressedFileStream = std::make_unique<std::ifstream>(entry, std::ios::binary);
+                }
+                else {
+                    struct zip_t *zip = zip_open(entry.string().c_str(), 0, 'r');
+                    try {
+                        const auto zipEntryName = fs::path(entry).stem().string();
+                        const auto zipEntryOpenResult = zip_entry_open(zip, zipEntryName.c_str());
+                        if (zipEntryOpenResult) {
+                            throw std::runtime_error("Unable to open zip entry " + zipEntryName + ", return value = " + std::to_string(zipEntryOpenResult));
+                        }
+                        char* buffer = NULL;
+                        size_t bufferSize = 0;
+                        const auto bytesRead = zip_entry_read(zip, reinterpret_cast<void**>(&buffer), &bufferSize);
+                        assert(bytesRead == bufferSize);
+                        try {
+                            uncompressedDataBuffer = std::string(buffer, bytesRead);
+                            free(buffer);
+                            uncompressedMemoryStream = std::make_unique<std::istringstream>(uncompressedDataBuffer);
+                        }
+                        catch (std::exception&) {
+                            free(buffer);
+                            throw;
+                        }
+                    }
+                    catch (std::exception&) {
+                        zip_close(zip);
+                        throw;
+                    }
+                }
+
                 slaim::Message msg;
+
+                const auto readMessageFromStream = [&]() {
+                    return isCompressed
+                        ? claim::ReadMessageFromStream(*uncompressedMemoryStream, msg)
+                        : claim::ReadMessageFromStream(*uncompressedFileStream, msg);
+                };
+
                 uintmax_t messagesRead = 0;
-                while (claim::ReadMessageFromStream(in, msg)) {
+                while (readMessageFromStream()) {
                     ++messagesRead;
                     const auto i = std::find(
                         ignore.begin(),

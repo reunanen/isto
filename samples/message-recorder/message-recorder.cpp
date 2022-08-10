@@ -5,7 +5,9 @@
 //          http://www.boost.org/LICENSE_1_0.txt)
 
 #include <isto.h>
+
 #include "../system_clock_time_point_string_conversion/system_clock_time_point_string_conversion.h"
+#include "../zip/src/zip.h"
 
 #include <messaging/claim/PostOffice.h>
 #include <messaging/claim/AttributeMessage.h>
@@ -13,6 +15,7 @@
 #include <numcfc/Logger.h>
 
 #include <sstream>
+#include <assert.h>
 
 std::vector<std::string> Tokenize(const std::string& input)
 {
@@ -48,6 +51,8 @@ try {
         configuration.maxRotatingDataToKeepInGiB = iniFile.GetSetValue("Storage", "MaxRotatingDataToKeepInGiB", configuration.maxRotatingDataToKeepInGiB);
         configuration.minFreeDiskSpaceInGiB = iniFile.GetSetValue("Storage", "MinFreeDiskSpaceInGiB", configuration.minFreeDiskSpaceInGiB);
     }
+
+    const auto compressionEnabled = iniFile.GetSetValue("Storage", "Compress", 1) > 0;
 
     isto::Storage storage(configuration);
 
@@ -90,7 +95,54 @@ try {
             const std::string timestamp = system_clock_time_point_string_conversion::to_string(now);
             std::string id = timestamp;
             std::replace(id.begin(), id.end(), ':', '_');
-            isto::DataItem dataItem(id + ".msg", oss.str(), now);
+
+            const auto uncompressedData = oss.str();
+
+            const isto::DataItem dataItem = [&] {
+                if (!compressionEnabled) {
+                    return isto::DataItem(id + ".msg", uncompressedData, now);
+                }
+
+                auto* zip = zip_stream_open(NULL, 0, ZIP_DEFAULT_COMPRESSION_LEVEL, 'w');
+                if (!zip) {
+                    throw std::runtime_error("Unable to open zip stream for writing");
+                }
+                try {
+                    const auto zipEntryOpenResult = zip_entry_open(zip, (id + ".msg").c_str());
+                    if (zipEntryOpenResult) {
+                        throw std::runtime_error("Unable to open zip entry, return value = " + std::to_string(zipEntryOpenResult));
+                    }
+                    const auto zipEntryWriteResult = zip_entry_write(zip, uncompressedData.data(), uncompressedData.size());
+                    if (zipEntryWriteResult) {
+                        throw std::runtime_error("Unable to write zip entry, return value = " + std::to_string(zipEntryWriteResult));
+                    }
+                    const auto zipEntryCloseResult = zip_entry_close(zip);
+                    if (zipEntryCloseResult) {
+                        throw std::runtime_error("Unable to close zip entry, return value = " + std::to_string(zipEntryCloseResult));
+                    }
+
+                    // copy compressed stream into outbuf
+                    char* buffer = NULL;
+                    size_t bufferSize = 0;
+                    const auto bytesCopied = zip_stream_copy(zip, reinterpret_cast<void**>(&buffer), &bufferSize);
+                    assert(bytesCopied == bufferSize);
+                    zip_stream_close(zip);
+                    try {
+                        std::string compressedData(buffer, bufferSize);
+                        free(buffer);
+                        return isto::DataItem(id + ".msg.zip", compressedData, now);
+                    }
+                    catch (std::exception&) {
+                        free(buffer);
+                        throw;
+                    }
+                }
+                catch (std::exception&) {
+                    zip_stream_close(zip);
+                    throw;
+                }
+            }();
+
             storage.SaveData(dataItem, false);
             numcfc::Logger::LogAndEcho(
                 "Stored: " + timestamp + ", "

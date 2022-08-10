@@ -13,3 +13,6 @@
 [submodule "samples/system_clock_time_point_string_conversion"]
 	path = samples/system_clock_time_point_string_conversion
 	url = https://github.com/reunanen/system_clock_time_point_string_conversion
+[submodule "samples/zip"]
+	path = samples/zip
+	url = https://github.com/reunanen/zip
