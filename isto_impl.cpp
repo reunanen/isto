@@ -16,7 +16,7 @@
 #include <assert.h>
 
 namespace isto {
-    namespace fs = std::experimental::filesystem;
+    namespace fs = std::filesystem;
 
     Storage::Impl::Impl(const Configuration& configuration)
         : configuration(configuration)
