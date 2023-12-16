@@ -7,6 +7,7 @@
 #ifndef ISTO_H
 #define ISTO_H
 
+#include <string>
 #include <chrono>
 #include <vector>
 #include <deque>
