@@ -53,7 +53,7 @@ try {
         iniFile.Save();
     }
 
-    namespace fs = std::experimental::filesystem;
+    namespace fs = std::filesystem;
 
     uintmax_t messagesSent = 0;
 
