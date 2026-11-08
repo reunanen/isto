@@ -58,54 +58,54 @@ namespace isto {
         bool flushPermanent = false;
         bool flushRotating = false;
 
-        std::vector<std::string> directories(dataItemCount), paths(dataItemCount);
-        std::unordered_set<std::string> uniqueDirectories;
+        std::vector<bool> shouldBeWritten(dataItemCount, true);
+        std::deque<std::string> filesThatAlreadyExistWhenNotUpserting;
 
         for (size_t i = 0; i < dataItemCount; ++i) {
             const DataItem& dataItem = dataItems[i];
-            const std::string directory = GetDirectory(dataItem.isPermanent, dataItem.timestamp, configuration.directoryStructureResolution);
-            directories[i] = directory;
-            uniqueDirectories.insert(directory);
 
-            paths[i] = GetPath(dataItem.isPermanent, dataItem.timestamp, dataItem.id, configuration.directoryStructureResolution);
-        }
+            SQLite::Statement query(*GetDatabase(dataItem.isPermanent), "select timestamp, path, size from DataItems where id = ?");
+            query.bind(1, dataItem.id);
 
-        std::unordered_set<std::string> createdDirectories;
-
-        for (const auto& directory : uniqueDirectories) {
-            if (!fs::exists(directory)) {
-                fs::create_directories(directory);
-                createdDirectories.insert(directory);
+            if (!query.executeStep()) {
+                continue;
             }
-        }
 
-        assert(createdDirectories.size() <= uniqueDirectories.size());
+            const std::string existingTimestamp = query.getColumn(0).getText();
+            const std::string existingPath = query.getColumn(1).getText();
+            const size_t existingSize = static_cast<size_t>(query.getColumn(2).getInt64());
 
-        typedef std::unique_ptr<uintmax_t> FileSizeIfAny;
-        typedef std::future<FileSizeIfAny> GetExistingFileSizeOperation;
+            query.reset();
 
-        std::vector<std::unique_ptr<GetExistingFileSizeOperation>> getExistingFileSizeOperations(dataItemCount);
+            if (upsert) {
+                DeleteItem(dataItem.isPermanent, system_clock_time_point_string_conversion::from_string(existingTimestamp), dataItem.id);
 
-        const auto getFileSize = [&](size_t i) {
-            if (fs::exists(paths[i])) {
-                return std::make_unique<uintmax_t>(fs::file_size(paths[i]));
+                if (!dataItem.isPermanent) {
+                    assert(currentRotatingDataItemBytes >= existingSize);
+                    currentRotatingDataItemBytes -= existingSize;
+                }
             }
             else {
-                return std::unique_ptr<uintmax_t>();
+                // item exists and we are not upserting - this is an error
+                filesThatAlreadyExistWhenNotUpserting.push_back(existingPath);
+                shouldBeWritten[i] = false;
             }
-        };
-
-        for (size_t i = 0; i < dataItemCount; ++i) {
-            const bool directoryExistedBefore = createdDirectories.find(directories[i]) == createdDirectories.end();
-
-            auto getFileSizeOperation = directoryExistedBefore
-                ? std::async(std::launch::async, getFileSize, i)
-                : std::async(std::launch::deferred, []() { return std::unique_ptr<uintmax_t>(); });
-
-            getExistingFileSizeOperations[i] = std::make_unique<GetExistingFileSizeOperation>(std::move(getFileSizeOperation));
         }
 
-        std::vector<std::unique_ptr<std::future<void>>> fileWriteOperations(dataItemCount);
+        std::vector<std::string> paths(dataItemCount);
+        std::unordered_set<std::string> uniqueDirectories;
+
+        for (size_t i = 0; i < dataItemCount; ++i) {
+            if (shouldBeWritten[i]) {
+                const DataItem& dataItem = dataItems[i];
+                uniqueDirectories.insert(GetDirectory(dataItem.isPermanent, dataItem.timestamp, configuration.directoryStructureResolution));
+                paths[i] = GetPath(dataItem.isPermanent, dataItem.timestamp, dataItem.id, configuration.directoryStructureResolution);
+            }
+        }
+
+        for (const auto& directory : uniqueDirectories) {
+            fs::create_directories(directory);
+        }
 
         const auto writeFile = [&](size_t i) {
             const DataItem& dataItem = dataItems[i];
@@ -114,37 +114,23 @@ namespace isto {
             out.write(reinterpret_cast<const char*>(dataItem.data.data()), dataItem.data.size());
         };
 
-        std::deque<std::string> filesThatAlreadyExistWhenNotUpserting;
+        const size_t writeCount = std::count(
+            shouldBeWritten.begin(),
+            shouldBeWritten.end(),
+            true
+        );
+
+        std::vector<std::future<void>> fileWriteOperations;
+        fileWriteOperations.reserve(writeCount);
 
         for (size_t i = 0; i < dataItemCount; ++i) {
-
-            const auto startFileWriteOperation = [&]() {
-                fileWriteOperations[i] = std::make_unique<std::future<void>>(std::async(std::launch::async, writeFile, i));
-            };
-
-            const auto existingFileSize = getExistingFileSizeOperations[i]->get();
-            if (existingFileSize.get()) {
-                if (upsert) {
-                    // file exists, but we're upserting
-                    currentRotatingDataItemBytes -= *existingFileSize;
-                    startFileWriteOperation();
-                }
-                else {
-                    // file exists and not upserting - this is an error
-                    filesThatAlreadyExistWhenNotUpserting.push_back(paths[i]);
-                }
-            }
-            else {
-                // the file did not exist before
-                startFileWriteOperation();
+            if (shouldBeWritten[i]) {
+                fileWriteOperations.push_back(std::async(std::launch::async, writeFile, i));
             }
         }
 
         for (size_t i = 0; i < dataItemCount; ++i) {
-
-            const bool fileWriteOperationWasActuallyStarted = fileWriteOperations[i].get() != nullptr;
-
-            if (fileWriteOperationWasActuallyStarted) { // was a file write operation actually started?
+            if (shouldBeWritten[i]) {
                 const DataItem& dataItem = dataItems[i];
 
                 InsertDataItem(dataItem);
@@ -154,9 +140,8 @@ namespace isto {
                 }
                 else {
                     flushRotating = true;
+                    currentRotatingDataItemBytes += dataItem.data.size();
                 }
-
-                currentRotatingDataItemBytes += dataItem.data.size();
             }
         }
 
@@ -169,9 +154,7 @@ namespace isto {
         }
 
         for (auto& fileWriteOperation : fileWriteOperations) {
-            if (fileWriteOperation.get()) {
-                fileWriteOperation->get(); // wait for the operation to complete
-            }
+            fileWriteOperation.get(); // wait for the operation to complete
         }
 
         if (!filesThatAlreadyExistWhenNotUpserting.empty()) {

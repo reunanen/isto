@@ -143,6 +143,104 @@ namespace {
         EXPECT_NE(storage->GetData(sampleDataId).data, sampleDataItem->data);
     }
 
+    TEST_F(IstoTest, DoesNotInsertDuplicateDataHavingDifferentTimestamp) {
+        const auto timestamp = isto::now();
+
+        const isto::DataItem oldDataItem(sampleDataId, sampleDataItem->data, timestamp - std::chrono::hours(1));
+        const isto::DataItem newDataItem(sampleDataId, sampleDataItem->data, timestamp);
+
+        EXPECT_NO_THROW(storage->SaveData(oldDataItem));
+        EXPECT_THROW(storage->SaveData(newDataItem), std::exception);
+
+        EXPECT_EQ(storage->GetIdsSortedByAscendingTimestamp().size(), 1);
+        EXPECT_EQ(storage->GetData(sampleDataId).timestamp, oldDataItem.timestamp);
+    }
+
+    TEST_F(IstoTest, DoesUpsertDataHavingDifferentTimestamp) {
+        std::vector<unsigned char> newData(99);
+        newData[5] = '5';
+
+        const auto timestamp = isto::now();
+        const auto oldTimestamp = timestamp - std::chrono::hours(1);
+
+        const isto::DataItem oldDataItem(sampleDataId, sampleDataItem->data, oldTimestamp);
+        const isto::DataItem newDataItem(sampleDataId, newData, timestamp);
+
+        EXPECT_NO_THROW(storage->SaveData(oldDataItem));
+        EXPECT_NO_THROW(storage->SaveData(newDataItem, true));
+
+        EXPECT_EQ(storage->GetIdsSortedByAscendingTimestamp().size(), 1);
+
+        const isto::DataItem readItem = storage->GetData(sampleDataId);
+
+        EXPECT_EQ(readItem.data, newData);
+        EXPECT_EQ(readItem.timestamp, newDataItem.timestamp);
+
+        size_t fileCount = 0;
+        for (const auto& entry : fs::recursive_directory_iterator(configuration.rotatingDirectory)) {
+            if (fs::is_regular_file(entry.path())) {
+                if (entry.path().filename().string() == sampleDataId) {
+                    ++fileCount;
+                }
+            }
+        }
+        EXPECT_EQ(fileCount, 1);
+    }
+
+    TEST_F(IstoTest, SavesAndUpsertsBatches) {
+        const auto timestamp = isto::now();
+        const auto oldTimestamp = timestamp - std::chrono::hours(1);
+
+        {
+            const isto::DataItems dataItems = {
+                isto::DataItem("1.bin", sampleDataItem->data, oldTimestamp),
+                isto::DataItem("2.bin", sampleDataItem->data, oldTimestamp),
+            };
+
+            EXPECT_NO_THROW(storage->SaveData(dataItems));
+            EXPECT_EQ(storage->GetIdsSortedByAscendingTimestamp().size(), 2);
+        }
+
+        {
+            const isto::DataItems dataItems = {
+                isto::DataItem("3.bin", sampleDataItem->data, timestamp),
+                isto::DataItem("1.bin", sampleDataItem->data, timestamp),
+            };
+
+            EXPECT_THROW(storage->SaveData(dataItems), std::exception);
+            EXPECT_EQ(storage->GetIdsSortedByAscendingTimestamp().size(), 3);
+            EXPECT_TRUE(storage->GetData("3.bin").isValid);
+            EXPECT_EQ(storage->GetData("1.bin").timestamp, oldTimestamp);
+        }
+
+        {
+            std::vector<unsigned char> newData(99);
+            newData[5] = '5';
+
+            const isto::DataItems dataItems = {
+                isto::DataItem("1.bin", newData, timestamp),
+                isto::DataItem("2.bin", newData, timestamp),
+            };
+
+            EXPECT_NO_THROW(storage->SaveData(dataItems, true));
+            EXPECT_EQ(storage->GetIdsSortedByAscendingTimestamp().size(), 3);
+
+            for (const auto& i : dataItems) {
+                const isto::DataItem dataItem = storage->GetData(i.id);
+                EXPECT_EQ(dataItem.data, newData);
+                EXPECT_EQ(dataItem.timestamp, timestamp);
+            }
+        }
+
+        size_t fileCount = 0;
+        for (const auto& entry : fs::recursive_directory_iterator(configuration.rotatingDirectory)) {
+            if (fs::is_regular_file(entry.path()) && entry.path().extension().string() == ".bin") {
+                ++fileCount;
+            }
+        }
+        EXPECT_EQ(fileCount, 3);
+    }
+
     TEST_F(IstoTest, MakesPermanentAndRotating) {
         storage->SaveData(*sampleDataItem);
         EXPECT_TRUE(storage->MakePermanent(sampleDataItem->id));
