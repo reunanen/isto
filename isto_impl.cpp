@@ -44,6 +44,15 @@ namespace isto {
 
     bool Storage::Impl::SaveData(const DataItem* dataItems, size_t dataItemCount, bool upsert)
     {
+        // First check that there are no duplicate ids in the batch
+        for (size_t i = 0; i < dataItemCount; ++i) {
+            for (size_t j = 0; j < i; ++j) {
+                if (dataItems[i].id == dataItems[j].id) {
+                    throw std::runtime_error("Duplicate id: " + dataItems[i].id);
+                }
+            }
+        }
+
         { // Make sure we have enough space - TODO: when upserting, subtract from the total needed size the sizes of the files that will now be overwritten
             const size_t totalRotatingSizeNeeded = std::accumulate(dataItems, dataItems + dataItemCount, static_cast<size_t>(0),
                 [](size_t total, const DataItem& dataItem) {

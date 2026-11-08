@@ -241,6 +241,19 @@ namespace {
         EXPECT_EQ(fileCount, 3);
     }
 
+    TEST_F(IstoTest, RejectsBatchesContainingDuplicateIds) {
+        const isto::DataItems dataItems = {
+            isto::DataItem("1.bin", sampleDataItem->data),
+            isto::DataItem("2.bin", sampleDataItem->data),
+            isto::DataItem("1.bin", sampleDataItem->data),
+        };
+
+        EXPECT_THROW(storage->SaveData(dataItems), std::exception);
+        EXPECT_THROW(storage->SaveData(dataItems, true), std::exception);
+
+        EXPECT_EQ(storage->GetIdsSortedByAscendingTimestamp().size(), 0);
+    }
+
     TEST_F(IstoTest, MakesPermanentAndRotating) {
         storage->SaveData(*sampleDataItem);
         EXPECT_TRUE(storage->MakePermanent(sampleDataItem->id));
