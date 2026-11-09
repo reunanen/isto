@@ -188,8 +188,8 @@ namespace {
     }
 
     TEST_F(IstoTest, SavesAndUpsertsBatches) {
-        const auto timestamp = isto::now();
-        const auto oldTimestamp = timestamp - std::chrono::hours(1);
+        const isto::timestamp_t timestamp = std::chrono::time_point_cast<std::chrono::seconds>(isto::now());
+        const isto::timestamp_t oldTimestamp = timestamp - std::chrono::hours(1);
 
         {
             const isto::DataItems dataItems = {
